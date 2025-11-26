@@ -217,6 +217,7 @@
   <script src="js/connection.js"></script>
   <script src="js/game-engine.js"></script>
   <script src="games/bumper-cars.js"></script>
+  <script src="games/beach-volleyball.js"></script>
   <script>
     let connection;
     let game = null;
@@ -303,6 +304,12 @@
             console.log('Player', player.number, 'ended game');
             endGame();
           }
+          // Handle serve (volleyball)
+          else if (data.type === 'serve') {
+            if (game && typeof game.serve === 'function') {
+              game.serve(player.id);
+            }
+          }
         },
 
         onError: (err) => {
@@ -331,9 +338,13 @@
       document.getElementById('lobby').classList.add('hidden');
       document.getElementById('game-ui').classList.add('active');
 
-      // Initialize game
+      // Initialize game based on type
       const canvas = document.getElementById('game-canvas');
-      game = new BumperCarsGame(canvas, connection);
+      if (gameId === 'bumper-cars') {
+        game = new BumperCarsGame(canvas, connection);
+      } else if (gameId === 'beach-volleyball') {
+        game = new BeachVolleyballGame(canvas, connection);
+      }
 
       // Add existing players to game
       connection.playerList.forEach(player => {

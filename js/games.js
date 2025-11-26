@@ -9,12 +9,18 @@ const GAMES = {
     icon: '🚗',
     minPlayers: 1,
     maxPlayers: 8,
-    scriptSrc: 'games/bumper-cars.js',
-    gameClass: 'BumperCarsGame'
+    controllerType: 'tilt'
+  },
+  'beach-volleyball': {
+    id: 'beach-volleyball',
+    name: 'Beach Volleyball',
+    subtitle: 'Sunny Smash',
+    description: '2v2 volleyball on the beach!',
+    icon: '🏐',
+    minPlayers: 2,
+    maxPlayers: 8,
+    controllerType: 'tilt-serve'
   }
-  // Add more games here later:
-  // 'paint-splat': { ... },
-  // 'marble-race': { ... },
 };
 
 const GAME_LIST = Object.values(GAMES);

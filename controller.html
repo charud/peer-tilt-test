@@ -242,6 +242,31 @@
       background: rgba(255, 255, 255, 0.2);
       color: white;
     }
+
+    /* Serve button */
+    .serve-btn {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      border: none;
+      color: #1a1a2e;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+
+    .serve-btn.visible {
+      display: block;
+    }
+
+    .serve-btn:active {
+      transform: scale(0.95);
+      box-shadow: 0 2px 10px rgba(255, 215, 0, 0.3);
+    }
   </style>
 </head>
 <body>
@@ -267,13 +292,14 @@
     <div class="game-header">
       <div class="game-name" id="current-game-name">Bumper Cars</div>
     </div>
+    <button id="serve-btn" class="serve-btn">SERVE!</button>
     <div class="tilt-indicator">
       <div class="tilt-crosshair horizontal"></div>
       <div class="tilt-crosshair vertical"></div>
       <div class="tilt-dot" id="tilt-dot"></div>
     </div>
-    <p class="instruction">Tilt to drive!</p>
-    <p class="instruction-sub">Push others off the arena</p>
+    <p class="instruction" id="instruction-main">Tilt to drive!</p>
+    <p class="instruction-sub" id="instruction-sub">Push others off the arena</p>
     <button id="end-game-btn" class="end-game-btn">End Game</button>
   </div>
 
@@ -386,6 +412,7 @@
         const game = games.find(g => g.id === currentGameId);
         if (game) {
           document.getElementById('current-game-name').textContent = game.name;
+          updateControllerUI(game);
         }
         showView('controller-view');
       }
@@ -430,6 +457,34 @@
         conn.send({ type: 'end-game' });
       }
     });
+
+    // Serve button
+    document.getElementById('serve-btn').addEventListener('click', () => {
+      if (conn && conn.open) {
+        conn.send({ type: 'serve' });
+      }
+    });
+
+    // Update controller UI based on game
+    function updateControllerUI(game) {
+      const serveBtn = document.getElementById('serve-btn');
+      const instructionMain = document.getElementById('instruction-main');
+      const instructionSub = document.getElementById('instruction-sub');
+
+      if (game.id === 'beach-volleyball') {
+        serveBtn.classList.add('visible');
+        instructionMain.textContent = 'Tilt to move!';
+        instructionSub.textContent = 'Block the ball with your body';
+      } else if (game.id === 'bumper-cars') {
+        serveBtn.classList.remove('visible');
+        instructionMain.textContent = 'Tilt to drive!';
+        instructionSub.textContent = 'Push others off the arena';
+      } else {
+        serveBtn.classList.remove('visible');
+        instructionMain.textContent = 'Tilt to move!';
+        instructionSub.textContent = '';
+      }
+    }
 
     // Tilt tracking
     function startTiltTracking() {

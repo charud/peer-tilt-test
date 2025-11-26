@@ -7,14 +7,19 @@ class BumperCarsGame extends GameEngine {
     this.arenaRadius = 0;
     this.carRadius = 40;
     this.maxSpeed = 400;
-    this.acceleration = 600;
-    this.friction = 0.98;
+    this.acceleration = 800;
+    this.friction = 0.96;
     this.bounceForce = 500;
+
+    // Initialize center immediately
+    this.centerX = window.innerWidth / 2;
+    this.centerY = window.innerHeight / 2;
+    this.arenaRadius = Math.min(window.innerWidth, window.innerHeight) * 0.4;
   }
 
   resize() {
     super.resize();
-    this.arenaRadius = Math.min(this.width, this.height) * 0.45;
+    this.arenaRadius = Math.min(this.width, this.height) * 0.4;
     this.centerX = this.width / 2;
     this.centerY = this.height / 2;
   }
@@ -22,7 +27,7 @@ class BumperCarsGame extends GameEngine {
   onPlayerJoin(player) {
     // Spawn car at random position in arena
     const angle = Math.random() * Math.PI * 2;
-    const dist = Math.random() * this.arenaRadius * 0.5;
+    const dist = Math.random() * this.arenaRadius * 0.3;
 
     this.cars[player.id] = {
       player,
@@ -30,10 +35,12 @@ class BumperCarsGame extends GameEngine {
       y: this.centerY + Math.sin(angle) * dist,
       vx: 0,
       vy: 0,
-      angle: angle,
+      angle: 0,
       hits: 0,
       eliminated: false
     };
+
+    console.log('Car created for player', player.number, 'at', this.cars[player.id].x, this.cars[player.id].y);
   }
 
   onPlayerLeave(player) {
@@ -170,32 +177,37 @@ class BumperCarsGame extends GameEngine {
       ctx.translate(car.x, car.y);
       ctx.rotate(car.angle);
 
-      // Car body
+      // Car body (simple circle for now)
       ctx.fillStyle = car.player.color;
       ctx.beginPath();
-      ctx.roundRect(-this.carRadius, -this.carRadius * 0.6, this.carRadius * 2, this.carRadius * 1.2, 8);
+      ctx.arc(0, 0, this.carRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      // Car front indicator
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      // Car front indicator (shows direction)
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
       ctx.beginPath();
-      ctx.roundRect(this.carRadius * 0.5, -this.carRadius * 0.3, this.carRadius * 0.4, this.carRadius * 0.6, 4);
+      ctx.arc(this.carRadius * 0.5, 0, this.carRadius * 0.25, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();
 
       // Player number above car
       ctx.fillStyle = 'white';
-      ctx.font = 'bold 20px system-ui';
+      ctx.font = 'bold 24px system-ui';
       ctx.textAlign = 'center';
-      ctx.fillText(car.player.number, car.x, car.y - this.carRadius - 10);
+      ctx.fillText(car.player.number, car.x, car.y - this.carRadius - 15);
     });
 
-    // Draw player count
+    // Debug: show input values
     ctx.fillStyle = 'white';
-    ctx.font = '20px system-ui';
+    ctx.font = '16px system-ui';
     ctx.textAlign = 'left';
-    ctx.fillText(`Players: ${Object.keys(this.cars).length}`, 20, 30);
+    let y = 30;
+    Object.values(this.cars).forEach(car => {
+      const input = car.player.input;
+      ctx.fillText(`P${car.player.number}: x=${input.x.toFixed(2)} y=${input.y.toFixed(2)} vel=${Math.sqrt(car.vx*car.vx + car.vy*car.vy).toFixed(0)}`, 20, y);
+      y += 25;
+    });
   }
 }
 

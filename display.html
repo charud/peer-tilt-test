@@ -338,6 +338,11 @@
               game.serve(player.id);
             }
           }
+          // Handle reset players request
+          else if (data.type === 'reset-players') {
+            console.log('Player', player.number, 'requested reset players');
+            resetAllPlayers();
+          }
         },
 
         onError: (err) => {
@@ -404,6 +409,32 @@
         type: 'game-ended',
         games: GAME_LIST
       });
+    }
+
+    function resetAllPlayers() {
+      console.log('Resetting all players...');
+
+      // End any active game first
+      if (game) {
+        game.stop();
+        game = null;
+      }
+      currentGameId = null;
+
+      // Show lobby
+      document.getElementById('lobby').classList.remove('hidden');
+      document.getElementById('game-ui').classList.remove('active');
+
+      // Disconnect all players (they will auto-reconnect)
+      connection.playerList.forEach(player => {
+        if (player.conn && player.conn.open) {
+          player.conn.close();
+        }
+      });
+
+      // Clear player list
+      connection.players = {};
+      updatePlayerCount();
     }
 
     init();

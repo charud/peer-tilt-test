@@ -139,6 +139,42 @@
       background: rgba(255, 255, 255, 0.2);
     }
 
+    /* Leave button */
+    .leave-btn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      color: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+    }
+
+    .leave-btn:active {
+      background: rgba(255, 100, 100, 0.3);
+      color: white;
+    }
+
+    /* Reset players button */
+    .reset-btn {
+      margin-top: 2rem;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.75rem;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      color: rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+    }
+
+    .reset-btn:active {
+      background: rgba(255, 100, 100, 0.2);
+      color: rgba(255, 255, 255, 0.6);
+    }
+
     /* Game selection view */
     .section-title {
       font-size: 1.2rem;
@@ -385,15 +421,18 @@
 
   <!-- Game selection view -->
   <div id="select-view" class="view">
+    <button id="leave-btn-lobby" class="leave-btn">Leave</button>
     <div class="app-title">Tilt Party</div>
     <p class="section-title">Select a game to play</p>
     <div class="game-list" id="game-list">
       <!-- Populated by JS -->
     </div>
+    <button id="reset-players-btn" class="reset-btn">Reset All Players</button>
   </div>
 
   <!-- Controller view (in-game) -->
   <div id="controller-view" class="view">
+    <button id="leave-btn-game" class="leave-btn">Leave</button>
     <button id="end-game-btn" class="end-game-btn">End Game</button>
     <div class="game-header">
       <div class="game-name" id="current-game-name">Bumper Cars</div>
@@ -561,6 +600,14 @@
 
     // Handle messages from display
     function handleMessage(data) {
+      // Respond to heartbeat ping
+      if (data.type === 'ping') {
+        if (conn && conn.open) {
+          conn.send({ type: 'pong' });
+        }
+        return;
+      }
+
       if (data.type === 'game-state') {
         games = data.games || [];
         currentGameId = data.gameId;
@@ -638,6 +685,39 @@
         conn.send({ type: 'serve' });
       }
     });
+
+    // Leave button (lobby) - disconnect and return to connecting screen
+    document.getElementById('leave-btn-lobby').addEventListener('click', () => {
+      leaveGame();
+    });
+
+    // Leave button (in-game) - disconnect and return to connecting screen
+    document.getElementById('leave-btn-game').addEventListener('click', () => {
+      leaveGame();
+    });
+
+    // Reset players button - send message to display to clear all players
+    document.getElementById('reset-players-btn').addEventListener('click', () => {
+      if (conn && conn.open) {
+        conn.send({ type: 'reset-players' });
+      }
+    });
+
+    // Leave/disconnect function
+    function leaveGame() {
+      if (conn) {
+        conn.close();
+      }
+      if (peer) {
+        peer.destroy();
+      }
+      isConnected = false;
+      hasJoined = false;
+      currentGameId = null;
+      showView('connecting-view');
+      // Reconnect after a moment
+      setTimeout(() => connect(), 500);
+    }
 
     // Update controller UI based on game
     function updateControllerUI(game) {

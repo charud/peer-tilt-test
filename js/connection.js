@@ -11,6 +11,11 @@ class ConnectionManager {
     this.onPlayerInput = options.onPlayerInput || (() => {});
     this.onReady = options.onReady || (() => {});
     this.onError = options.onError || (() => {});
+
+    // Heartbeat settings
+    this.heartbeatInterval = 3000; // Send ping every 3 seconds
+    this.heartbeatTimeout = 10000; // Consider disconnected after 10 seconds
+    this.heartbeatTimer = null;
   }
 
   get controllerUrl() {
@@ -32,6 +37,7 @@ class ConnectionManager {
       this.peer.on('open', (id) => {
         console.log('Connection ready, room:', this.roomCode);
         this.onReady(this.roomCode, this.controllerUrl);
+        this.startHeartbeat();
         resolve();
       });
 
@@ -61,7 +67,8 @@ class ConnectionManager {
         name: null, // Set when player sends set-name
         color: `hsl(${hue}, 70%, 50%)`,
         input: { x: 0, y: 0 }, // Normalized tilt input
-        connected: true
+        connected: true,
+        lastHeartbeat: Date.now() // Track last response time
       };
 
       this.players[peerId] = player;
@@ -72,6 +79,14 @@ class ConnectionManager {
     conn.on('data', (data) => {
       const player = this.players[peerId];
       if (!player) return;
+
+      // Update heartbeat on any message from player
+      player.lastHeartbeat = Date.now();
+
+      // Handle heartbeat pong
+      if (data.type === 'pong') {
+        return; // Just update timestamp, already done above
+      }
 
       // Handle set-name message - this officially "joins" the player
       if (data.type === 'set-name') {
@@ -124,7 +139,41 @@ class ConnectionManager {
     });
   }
 
+  // Start heartbeat checking
+  startHeartbeat() {
+    this.heartbeatTimer = setInterval(() => {
+      this.checkHeartbeats();
+      this.broadcast({ type: 'ping' });
+    }, this.heartbeatInterval);
+  }
+
+  // Check for timed out players
+  checkHeartbeats() {
+    const now = Date.now();
+    const timedOut = [];
+
+    Object.values(this.players).forEach(player => {
+      if (now - player.lastHeartbeat > this.heartbeatTimeout) {
+        console.log('Player', player.number, 'timed out (no heartbeat)');
+        timedOut.push(player);
+      }
+    });
+
+    // Remove timed out players
+    timedOut.forEach(player => {
+      player.connected = false;
+      this.onPlayerLeave(player);
+      delete this.players[player.id];
+      if (player.conn && player.conn.open) {
+        player.conn.close();
+      }
+    });
+  }
+
   destroy() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+    }
     if (this.peer) {
       this.peer.destroy();
     }

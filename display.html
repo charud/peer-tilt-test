@@ -28,6 +28,21 @@
     #qr-section {
       text-align: center;
     }
+    #qr-section.minimized {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10;
+    }
+    #qr-section.minimized h1 {
+      display: none;
+    }
+    #qr-section.minimized #qr-code {
+      padding: 10px;
+    }
+    #qr-section.minimized #url {
+      display: none;
+    }
     #qr-section h1 {
       margin-bottom: 1rem;
       font-size: 2rem;
@@ -179,7 +194,7 @@
     }
 
     function showGameArea() {
-      document.getElementById('qr-section').style.display = 'none';
+      document.getElementById('qr-section').classList.add('minimized');
       document.getElementById('game-area').style.display = 'block';
     }
 
@@ -188,9 +203,9 @@
       document.getElementById('connected-count').textContent =
         count > 0 ? `Players: ${count}` : '';
 
-      // Show QR again if no players
+      // Show full QR again if no players
       if (count === 0) {
-        document.getElementById('qr-section').style.display = 'block';
+        document.getElementById('qr-section').classList.remove('minimized');
         document.getElementById('game-area').style.display = 'none';
       }
     }

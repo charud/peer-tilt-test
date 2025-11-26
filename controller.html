@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Tilt Controller</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    #status {
+      font-size: 1.2rem;
+      margin-bottom: 2rem;
+    }
+    #start-btn {
+      padding: 1rem 2rem;
+      font-size: 1.2rem;
+      background: #ffd700;
+      color: #1a1a2e;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #start-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #tilt-display {
+      margin-top: 2rem;
+      font-size: 1rem;
+      opacity: 0.7;
+    }
+    .connected {
+      color: #4ade80;
+    }
+    .error {
+      color: #f87171;
+    }
+    #debug {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+      font-size: 0.8rem;
+      opacity: 0.5;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tilt Controller</h1>
+  <p id="status">Tap button to connect</p>
+  <button id="start-btn">Start</button>
+  <div id="tilt-display"></div>
+  <div id="debug"></div>
+
+  <script>
+    let peer;
+    let conn;
+    let isConnected = false;
+
+    // Get room code from URL
+    const params = new URLSearchParams(window.location.search);
+    const roomCode = params.get('room');
+
+    if (!roomCode) {
+      document.getElementById('status').textContent = 'No room code found!';
+      document.getElementById('status').className = 'error';
+      document.getElementById('start-btn').disabled = true;
+    }
+
+    document.getElementById('start-btn').addEventListener('click', async () => {
+      if (isConnected) return;
+
+      document.getElementById('status').textContent = 'Connecting...';
+      document.getElementById('start-btn').disabled = true;
+
+      // Request motion permission (required on iOS)
+      if (typeof DeviceMotionEvent !== 'undefined' &&
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const permission = await DeviceMotionEvent.requestPermission();
+          if (permission !== 'granted') {
+            document.getElementById('status').textContent = 'Motion permission denied';
+            document.getElementById('status').className = 'error';
+            return;
+          }
+        } catch (e) {
+          console.error('Permission error:', e);
+        }
+      }
+
+      // Create peer connection
+      peer = new Peer();
+
+      peer.on('open', (id) => {
+        document.getElementById('debug').textContent = `My ID: ${id}`;
+
+        // Connect to display
+        conn = peer.connect('tilt-' + roomCode);
+
+        conn.on('open', () => {
+          isConnected = true;
+          document.getElementById('status').textContent = 'Connected!';
+          document.getElementById('status').className = 'connected';
+          document.getElementById('start-btn').textContent = 'Tilt to move!';
+          startTiltTracking();
+        });
+
+        conn.on('close', () => {
+          isConnected = false;
+          document.getElementById('status').textContent = 'Disconnected';
+          document.getElementById('status').className = 'error';
+          document.getElementById('start-btn').disabled = false;
+          document.getElementById('start-btn').textContent = 'Reconnect';
+        });
+
+        conn.on('error', (err) => {
+          document.getElementById('status').textContent = 'Connection error';
+          document.getElementById('status').className = 'error';
+          console.error(err);
+        });
+      });
+
+      peer.on('error', (err) => {
+        document.getElementById('status').textContent = 'Error: ' + err.type;
+        document.getElementById('status').className = 'error';
+        document.getElementById('start-btn').disabled = false;
+        console.error(err);
+      });
+    });
+
+    function startTiltTracking() {
+      let lastSend = 0;
+      const throttleMs = 50; // Send max 20 times per second
+
+      window.addEventListener('deviceorientation', (e) => {
+        const now = Date.now();
+        if (now - lastSend < throttleMs) return;
+        lastSend = now;
+
+        // beta: front/back tilt (-180 to 180)
+        // gamma: left/right tilt (-90 to 90)
+        const beta = e.beta || 0;
+        const gamma = e.gamma || 0;
+
+        // Normalize - assume phone held upright, zero at slight angle
+        const normalizedBeta = Math.max(-30, Math.min(30, beta - 30)) / 30;
+        const normalizedGamma = Math.max(-30, Math.min(30, gamma)) / 30;
+
+        document.getElementById('tilt-display').textContent =
+          `Tilt: ${normalizedGamma.toFixed(2)} x, ${normalizedBeta.toFixed(2)} y`;
+
+        if (conn && conn.open) {
+          conn.send({
+            type: 'tilt',
+            beta: normalizedBeta,
+            gamma: normalizedGamma
+          });
+        }
+      });
+    }
+  </script>
+</body>
+</html>

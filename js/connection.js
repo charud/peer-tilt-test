@@ -72,11 +72,14 @@ class ConnectionManager {
       const player = this.players[peerId];
       if (!player) return;
 
+      // Update input state for tilt messages
       if (data.type === 'tilt') {
         player.input.x = data.gamma; // -1 to 1, left/right
         player.input.y = data.beta;  // -1 to 1, forward/back
-        this.onPlayerInput(player, data);
       }
+
+      // Always call onPlayerInput for all message types
+      this.onPlayerInput(player, data);
     });
 
     conn.on('close', () => {

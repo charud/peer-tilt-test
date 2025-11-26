@@ -243,6 +243,9 @@
         controllerUrl: 'https://charud.github.io/peer-tilt-test/controller.html',
 
         onReady: (roomCode, url) => {
+          console.log('Room ready:', roomCode);
+          console.log('Controller URL:', url);
+
           // Generate QR code for lobby
           new QRCode(document.getElementById('qr-code'), {
             text: url,
@@ -292,10 +295,12 @@
         onPlayerInput: (player, data) => {
           // Handle game selection from controller
           if (data.type === 'select-game') {
+            console.log('Player', player.number, 'selected game:', data.gameId);
             startGame(data.gameId);
           }
           // Handle end game request
           else if (data.type === 'end-game') {
+            console.log('Player', player.number, 'ended game');
             endGame();
           }
         },

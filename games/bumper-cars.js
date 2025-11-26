@@ -16,6 +16,10 @@ class BumperCarsGame extends GameEngine {
     this.maxLives = 3;
     this.respawnDelay = 1500; // ms before respawn
 
+    // Animation durations
+    this.fallDuration = 800; // ms for fall animation
+    this.dropDuration = 400; // ms for drop-in animation
+
     // Initialize center immediately
     this.centerX = window.innerWidth / 2;
     this.centerY = window.innerHeight / 2;
@@ -45,7 +49,14 @@ class BumperCarsGame extends GameEngine {
       respawning: false,
       respawnTime: 0,
       eliminated: false,
-      knockouts: 0 // Track how many times this player knocked others off
+      knockouts: 0, // Track how many times this player knocked others off
+      // Animation state
+      falling: false,
+      fallStart: 0,
+      fallX: 0,
+      fallY: 0,
+      dropping: true, // Start with drop animation
+      dropStart: performance.now()
     };
 
     console.log('Car created for player', player.number, 'with', this.maxLives, 'lives');
@@ -61,6 +72,11 @@ class BumperCarsGame extends GameEngine {
     car.vx = 0;
     car.vy = 0;
     car.respawning = false;
+    car.falling = false;
+
+    // Start drop animation
+    car.dropping = true;
+    car.dropStart = performance.now();
   }
 
   onPlayerLeave(player) {
@@ -75,12 +91,32 @@ class BumperCarsGame extends GameEngine {
     carList.forEach(car => {
       if (car.eliminated) return;
 
+      // Handle falling animation
+      if (car.falling) {
+        const fallProgress = (now - car.fallStart) / this.fallDuration;
+        if (fallProgress >= 1) {
+          // Fall complete, start respawn timer
+          car.falling = false;
+          car.respawning = true;
+          car.respawnTime = now + this.respawnDelay;
+        }
+        return; // Don't update while falling
+      }
+
       // Handle respawning
       if (car.respawning) {
         if (now > car.respawnTime) {
           this.respawnCar(car);
         }
         return; // Don't update while respawning
+      }
+
+      // Handle drop animation (can still play while controllable)
+      if (car.dropping) {
+        const dropProgress = (now - car.dropStart) / this.dropDuration;
+        if (dropProgress >= 1) {
+          car.dropping = false;
+        }
       }
 
       const input = car.player.input;
@@ -116,17 +152,23 @@ class BumperCarsGame extends GameEngine {
       );
 
       if (distFromCenter > this.arenaRadius + this.carRadius) {
-        // Fell off!
+        // Fell off! Start fall animation
         car.lives--;
         console.log('Player', car.player.number, 'fell off! Lives:', car.lives);
 
         if (car.lives <= 0) {
           car.eliminated = true;
+          car.falling = true;
+          car.fallStart = now;
+          car.fallX = car.x;
+          car.fallY = car.y;
           console.log('Player', car.player.number, 'ELIMINATED!');
         } else {
-          // Start respawn timer
-          car.respawning = true;
-          car.respawnTime = now + this.respawnDelay;
+          // Start fall animation, then respawn
+          car.falling = true;
+          car.fallStart = now;
+          car.fallX = car.x;
+          car.fallY = car.y;
         }
       }
     });
@@ -204,24 +246,73 @@ class BumperCarsGame extends GameEngine {
     ctx.fill();
 
     // Draw cars
-    Object.values(this.cars).forEach(car => {
-      if (car.eliminated) return;
+    const now = performance.now();
 
-      // Skip rendering if respawning (blinking effect)
-      if (car.respawning) {
-        // Draw ghost at respawn point
-        ctx.globalAlpha = 0.3;
+    Object.values(this.cars).forEach(car => {
+      // Handle falling animation (shrink and fade)
+      if (car.falling) {
+        const progress = Math.min(1, (now - car.fallStart) / this.fallDuration);
+        const easeOut = 1 - Math.pow(1 - progress, 3); // Cubic ease out
+
+        const scale = 1 - easeOut * 0.8; // Shrink to 20%
+        const opacity = 1 - easeOut; // Fade to 0
+        const rotation = car.angle + easeOut * Math.PI * 2; // Spin while falling
+
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        ctx.translate(car.fallX, car.fallY);
+        ctx.rotate(rotation);
+        ctx.scale(scale, scale);
+
+        // Car body
         ctx.fillStyle = car.player.color;
         ctx.beginPath();
-        ctx.arc(this.centerX, this.centerY, this.carRadius, 0, Math.PI * 2);
+        ctx.arc(0, 0, this.carRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Front indicator
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.beginPath();
+        ctx.arc(this.carRadius * 0.5, 0, this.carRadius * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+        return;
+      }
+
+      if (car.eliminated) return;
+
+      // Skip rendering if respawning (show pulsing ghost)
+      if (car.respawning) {
+        const pulse = 0.3 + Math.sin(now / 150) * 0.1;
+        ctx.globalAlpha = pulse;
+        ctx.fillStyle = car.player.color;
+        ctx.beginPath();
+        ctx.arc(this.centerX, this.centerY, this.carRadius * 0.8, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
         return;
       }
 
+      // Handle drop animation (scale in from above)
+      let dropScale = 1;
+      let dropOffset = 0;
+      let dropOpacity = 1;
+
+      if (car.dropping) {
+        const progress = Math.min(1, (now - car.dropStart) / this.dropDuration);
+        const easeOut = 1 - Math.pow(1 - progress, 2); // Quadratic ease out
+
+        dropScale = 0.3 + easeOut * 0.7; // Scale from 30% to 100%
+        dropOffset = (1 - easeOut) * -50; // Drop from above
+        dropOpacity = 0.3 + easeOut * 0.7; // Fade in
+      }
+
       ctx.save();
-      ctx.translate(car.x, car.y);
+      ctx.globalAlpha = dropOpacity;
+      ctx.translate(car.x, car.y + dropOffset);
       ctx.rotate(car.angle);
+      ctx.scale(dropScale, dropScale);
 
       // Car body (simple circle for now)
       ctx.fillStyle = car.player.color;
@@ -237,11 +328,13 @@ class BumperCarsGame extends GameEngine {
 
       ctx.restore();
 
-      // Player number above car
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 24px system-ui';
-      ctx.textAlign = 'center';
-      ctx.fillText(car.player.number, car.x, car.y - this.carRadius - 15);
+      // Player number above car (only when not dropping)
+      if (!car.dropping) {
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 24px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText(car.player.number, car.x, car.y - this.carRadius - 15);
+      }
     });
 
     // Draw scoreboard / lives

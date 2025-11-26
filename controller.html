@@ -225,16 +225,20 @@
     .instruction-sub {
       font-size: 0.95rem;
       opacity: 0.6;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
 
     .end-game-btn {
-      padding: 0.8rem 1.5rem;
-      font-size: 0.9rem;
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0.6rem 1.2rem;
+      font-size: 0.8rem;
       background: rgba(255, 255, 255, 0.1);
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 30px;
-      color: rgba(255, 255, 255, 0.6);
+      color: rgba(255, 255, 255, 0.4);
       cursor: pointer;
     }
 
@@ -333,10 +337,10 @@
 
   <!-- Controller view (in-game) -->
   <div id="controller-view" class="view">
+    <button id="end-game-btn" class="end-game-btn">End Game</button>
     <div class="game-header">
       <div class="game-name" id="current-game-name">Bumper Cars</div>
     </div>
-    <button id="action-btn" class="action-btn">JUMP</button>
     <div class="tilt-indicator" id="tilt-indicator">
       <div class="tilt-crosshair horizontal"></div>
       <div class="tilt-crosshair vertical"></div>
@@ -351,7 +355,7 @@
     </div>
     <p class="instruction" id="instruction-main">Tilt to drive!</p>
     <p class="instruction-sub" id="instruction-sub">Push others off the arena</p>
-    <button id="end-game-btn" class="end-game-btn">End Game</button>
+    <button id="action-btn" class="action-btn">JUMP</button>
   </div>
 
   <script>

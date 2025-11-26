@@ -37,7 +37,7 @@
       display: flex;
     }
 
-    /* Join view */
+    /* Connecting view */
     .app-title {
       font-size: 2rem;
       font-weight: bold;
@@ -55,9 +55,22 @@
     }
 
     #status {
-      font-size: 1.2rem;
-      margin-bottom: 1.5rem;
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
       min-height: 1.5rem;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 215, 0, 0.2);
+      border-top-color: #ffd700;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     .btn {
@@ -82,15 +95,49 @@
       cursor: not-allowed;
     }
 
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
-      box-shadow: none;
-      border: 2px solid rgba(255, 255, 255, 0.2);
+    .error { color: #f87171; }
+
+    /* Name entry view */
+    .name-label {
+      font-size: 1.1rem;
+      opacity: 0.7;
+      margin-bottom: 1rem;
     }
 
-    .connected { color: #4ade80; }
-    .error { color: #f87171; }
+    .name-input {
+      width: 100%;
+      max-width: 280px;
+      padding: 1rem 1.5rem;
+      font-size: 1.4rem;
+      font-weight: bold;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 215, 0, 0.3);
+      border-radius: 16px;
+      color: white;
+      margin-bottom: 0.75rem;
+      outline: none;
+    }
+
+    .name-input:focus {
+      border-color: #ffd700;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .shuffle-btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      margin-bottom: 2rem;
+    }
+
+    .shuffle-btn:active {
+      background: rgba(255, 255, 255, 0.2);
+    }
 
     /* Game selection view */
     .section-title {
@@ -318,12 +365,22 @@
   </style>
 </head>
 <body>
-  <!-- Join view -->
-  <div id="join-view" class="view active">
+  <!-- Connecting view (shown during auto-connect) -->
+  <div id="connecting-view" class="view active">
     <div class="app-title">Tilt Party</div>
     <div class="app-subtitle">Phone Controller</div>
-    <p id="status">Tap to connect</p>
-    <button id="connect-btn" class="btn">Connect</button>
+    <p id="status">Connecting...</p>
+    <div class="spinner" id="spinner"></div>
+    <button id="retry-btn" class="btn" style="display: none;">Retry</button>
+  </div>
+
+  <!-- Name entry view -->
+  <div id="name-view" class="view">
+    <div class="app-title">Tilt Party</div>
+    <p class="name-label">Your name</p>
+    <input type="text" id="player-name" class="name-input" maxlength="12" autocomplete="off" />
+    <button id="shuffle-btn" class="shuffle-btn">Shuffle name</button>
+    <button id="join-btn" class="btn">Join Game</button>
   </div>
 
   <!-- Game selection view -->
@@ -359,9 +416,21 @@
   </div>
 
   <script>
+    // Fun random names
+    const FUN_NAMES = [
+      'Speedy', 'Turbo', 'Flash', 'Rocket', 'Blaze', 'Storm', 'Thunder', 'Lightning',
+      'Ninja', 'Pirate', 'Viking', 'Wizard', 'Dragon', 'Phoenix', 'Tiger', 'Wolf',
+      'Captain', 'Chief', 'Boss', 'Legend', 'Champ', 'Pro', 'Ace', 'Star',
+      'Pixel', 'Glitch', 'Byte', 'Cyber', 'Neo', 'Zero', 'Max', 'Dash',
+      'Sunny', 'Lucky', 'Happy', 'Jolly', 'Zippy', 'Bouncy', 'Sparky', 'Dizzy',
+      'Pickle', 'Waffle', 'Noodle', 'Taco', 'Mango', 'Banana', 'Potato', 'Nugget'
+    ];
+
     let peer;
     let conn;
     let isConnected = false;
+    let hasJoined = false;
+    let playerName = '';
     let currentGameId = null;
     let games = [];
 
@@ -369,11 +438,18 @@
     const params = new URLSearchParams(window.location.search);
     const roomCode = params.get('room') || window.location.hash.slice(1);
 
-    if (!roomCode) {
-      document.getElementById('status').textContent = 'Invalid link';
-      document.getElementById('status').className = 'error';
-      document.getElementById('connect-btn').disabled = true;
+    // Get random name
+    function getRandomName() {
+      return FUN_NAMES[Math.floor(Math.random() * FUN_NAMES.length)];
     }
+
+    // Initialize name input with random name
+    document.getElementById('player-name').value = getRandomName();
+
+    // Shuffle button
+    document.getElementById('shuffle-btn').addEventListener('click', () => {
+      document.getElementById('player-name').value = getRandomName();
+    });
 
     // View management
     function showView(viewId) {
@@ -381,12 +457,25 @@
       document.getElementById(viewId).classList.add('active');
     }
 
-    // Connect button
-    document.getElementById('connect-btn').addEventListener('click', async () => {
-      if (isConnected) return;
+    // Show error state
+    function showError(message) {
+      document.getElementById('status').textContent = message;
+      document.getElementById('status').className = 'error';
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('retry-btn').style.display = 'block';
+    }
+
+    // Start connection
+    async function connect() {
+      if (!roomCode) {
+        showError('Invalid link');
+        return;
+      }
 
       document.getElementById('status').textContent = 'Connecting...';
-      document.getElementById('connect-btn').disabled = true;
+      document.getElementById('status').className = '';
+      document.getElementById('spinner').style.display = 'block';
+      document.getElementById('retry-btn').style.display = 'none';
 
       // Request motion permission (required on iOS)
       if (typeof DeviceMotionEvent !== 'undefined' &&
@@ -394,9 +483,7 @@
         try {
           const permission = await DeviceMotionEvent.requestPermission();
           if (permission !== 'granted') {
-            document.getElementById('status').textContent = 'Motion permission denied';
-            document.getElementById('status').className = 'error';
-            document.getElementById('connect-btn').disabled = false;
+            showError('Motion permission needed');
             return;
           }
         } catch (e) {
@@ -413,6 +500,9 @@
         conn.on('open', () => {
           isConnected = true;
           startTiltTracking();
+          // Show name entry screen
+          showView('name-view');
+          document.getElementById('player-name').focus();
         });
 
         conn.on('data', (data) => {
@@ -421,27 +511,42 @@
 
         conn.on('close', () => {
           isConnected = false;
-          showView('join-view');
-          document.getElementById('status').textContent = 'Disconnected';
-          document.getElementById('status').className = 'error';
-          document.getElementById('connect-btn').disabled = false;
-          document.getElementById('connect-btn').textContent = 'Reconnect';
+          hasJoined = false;
+          showView('connecting-view');
+          showError('Disconnected');
         });
 
         conn.on('error', (err) => {
-          document.getElementById('status').textContent = 'Connection error';
-          document.getElementById('status').className = 'error';
-          document.getElementById('connect-btn').disabled = false;
+          showError('Connection error');
           console.error(err);
         });
       });
 
       peer.on('error', (err) => {
-        document.getElementById('status').textContent = 'Error: ' + err.type;
-        document.getElementById('status').className = 'error';
-        document.getElementById('connect-btn').disabled = false;
+        showError('Error: ' + err.type);
         console.error(err);
       });
+    }
+
+    // Retry button
+    document.getElementById('retry-btn').addEventListener('click', () => {
+      connect();
+    });
+
+    // Join button - send name and officially join
+    document.getElementById('join-btn').addEventListener('click', () => {
+      playerName = document.getElementById('player-name').value.trim() || getRandomName();
+      hasJoined = true;
+
+      // Send join message with name
+      if (conn && conn.open) {
+        conn.send({ type: 'set-name', name: playerName });
+      }
+
+      // Request current game state
+      if (conn && conn.open) {
+        conn.send({ type: 'request-state' });
+      }
     });
 
     // Handle messages from display
@@ -450,11 +555,14 @@
         games = data.games || [];
         currentGameId = data.gameId;
 
+        if (!hasJoined) return; // Don't switch views until joined
+
         if (currentGameId) {
           // Game in progress, show controller
           const game = games.find(g => g.id === currentGameId);
           if (game) {
             document.getElementById('current-game-name').textContent = game.name;
+            updateControllerUI(game);
           }
           showView('controller-view');
         } else {
@@ -517,7 +625,6 @@
     // Action button (jump for volleyball, could be other actions for other games)
     document.getElementById('action-btn').addEventListener('click', () => {
       if (conn && conn.open) {
-        // Send both serve (for initial serve) and jump (for gameplay)
         conn.send({ type: 'serve' });
       }
     });
@@ -576,7 +683,7 @@
         tiltDot.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
 
         // Update horizontal bar indicator (for volleyball)
-        const barOffset = normalizedGamma * 115; // 280px width - 50px dot = 230px range, so ±115px
+        const barOffset = normalizedGamma * 115;
         tiltBarDot.style.left = `calc(50% + ${barOffset}px)`;
 
         if (conn && conn.open) {
@@ -591,6 +698,9 @@
 
     // Prevent scrolling/zooming
     document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+    // Auto-connect on page load
+    connect();
   </script>
 </body>
 </html>

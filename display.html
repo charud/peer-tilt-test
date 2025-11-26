@@ -314,8 +314,16 @@
         },
 
         onPlayerInput: (player, data) => {
+          // Handle request for current state
+          if (data.type === 'request-state') {
+            connection.sendToPlayer(player.id, {
+              type: 'game-state',
+              gameId: currentGameId,
+              games: GAME_LIST
+            });
+          }
           // Handle game selection from controller
-          if (data.type === 'select-game') {
+          else if (data.type === 'select-game') {
             console.log('Player', player.number, 'selected game:', data.gameId);
             startGame(data.gameId);
           }

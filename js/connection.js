@@ -58,19 +58,33 @@ class ConnectionManager {
         peerId,
         conn,
         number: playerNumber,
+        name: null, // Set when player sends set-name
         color: `hsl(${hue}, 70%, 50%)`,
         input: { x: 0, y: 0 }, // Normalized tilt input
         connected: true
       };
 
       this.players[peerId] = player;
-      console.log('Player joined:', playerNumber);
-      this.onPlayerJoin(player);
+      console.log('Player connected:', playerNumber);
+      // Don't call onPlayerJoin yet - wait for set-name
     });
 
     conn.on('data', (data) => {
       const player = this.players[peerId];
       if (!player) return;
+
+      // Handle set-name message - this officially "joins" the player
+      if (data.type === 'set-name') {
+        const wasJoined = player.name !== null;
+        player.name = data.name || `Player ${player.number}`;
+        console.log('Player', player.number, 'set name:', player.name);
+
+        // If this is the first time setting name, trigger join
+        if (!wasJoined) {
+          this.onPlayerJoin(player);
+        }
+        return;
+      }
 
       // Update input state for tilt messages
       if (data.type === 'tilt') {

@@ -95,9 +95,8 @@
     // Generate a short room code
     const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    // Get the base URL for the controller
-    const baseUrl = window.location.href.replace('display.html', 'controller.html');
-    const controllerUrl = `${baseUrl}?room=${roomCode}`;
+    // Controller is hosted on GitHub Pages (works from any network)
+    const controllerUrl = `https://charud.github.io/peer-tilt-test/controller.html?room=${roomCode}`;
 
     async function init() {
       document.getElementById('status').textContent = 'Connecting to PeerJS...';

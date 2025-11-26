@@ -361,8 +361,9 @@
     let currentGameId = null;
     let games = [];
 
+    // Support both ?room=XXX and #XXX formats
     const params = new URLSearchParams(window.location.search);
-    const roomCode = params.get('room');
+    const roomCode = params.get('room') || window.location.hash.slice(1);
 
     if (!roomCode) {
       document.getElementById('status').textContent = 'Invalid link';

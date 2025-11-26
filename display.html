@@ -247,6 +247,12 @@
           console.log('Room ready:', roomCode);
           console.log('Controller URL:', url);
 
+          // Local URL for testing without waiting for GitHub Pages deploy
+          // Using hash instead of query param since some dev servers strip query params
+          const baseUrl = window.location.href.split('?')[0].split('#')[0];
+          const localUrl = baseUrl.replace(/display(\.html)?$/, 'controller.html') + '#' + roomCode;
+          console.log('Local controller URL:', localUrl);
+
           // Generate QR code for lobby
           new QRCode(document.getElementById('qr-code'), {
             text: url,

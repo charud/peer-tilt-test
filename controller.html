@@ -492,8 +492,18 @@
       return FUN_NAMES[Math.floor(Math.random() * FUN_NAMES.length)];
     }
 
-    // Initialize name input with random name
-    document.getElementById('player-name').value = getRandomName();
+    // Load saved name or generate random one
+    function getSavedName() {
+      return localStorage.getItem('tiltparty-name') || getRandomName();
+    }
+
+    // Save name to localStorage
+    function saveName(name) {
+      localStorage.setItem('tiltparty-name', name);
+    }
+
+    // Initialize name input with saved name (or random if none)
+    document.getElementById('player-name').value = getSavedName();
 
     // Shuffle button
     document.getElementById('shuffle-btn').addEventListener('click', () => {
@@ -586,6 +596,9 @@
     document.getElementById('join-btn').addEventListener('click', () => {
       playerName = document.getElementById('player-name').value.trim() || getRandomName();
       hasJoined = true;
+
+      // Save name for next time
+      saveName(playerName);
 
       // Send join message with name
       if (conn && conn.open) {

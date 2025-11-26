@@ -337,11 +337,41 @@ class BumperCarsGame extends GameEngine {
 
       // Player name above car (only when not dropping)
       if (!car.dropping) {
-        ctx.fillStyle = 'white';
+        const displayName = car.player.name || `Player ${car.player.number}`;
         ctx.font = 'bold 16px system-ui';
         ctx.textAlign = 'center';
-        const displayName = car.player.name || `Player ${car.player.number}`;
-        ctx.fillText(displayName, car.x, car.y - this.carRadius - 15);
+        ctx.textBaseline = 'middle';
+
+        const nameY = car.y - this.carRadius - 20;
+        const textWidth = ctx.measureText(displayName).width;
+        const pillPadding = 10;
+        const pillHeight = 24;
+
+        // Background pill
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.beginPath();
+        const pillX = car.x - textWidth / 2 - pillPadding;
+        const pillW = textWidth + pillPadding * 2;
+        const pillR = pillHeight / 2;
+        ctx.moveTo(pillX + pillR, nameY - pillHeight / 2);
+        ctx.lineTo(pillX + pillW - pillR, nameY - pillHeight / 2);
+        ctx.arc(pillX + pillW - pillR, nameY, pillR, -Math.PI / 2, Math.PI / 2);
+        ctx.lineTo(pillX + pillR, nameY + pillHeight / 2);
+        ctx.arc(pillX + pillR, nameY, pillR, Math.PI / 2, -Math.PI / 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Player color border
+        ctx.strokeStyle = car.player.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Name text with glow
+        ctx.shadowColor = car.player.color;
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = 'white';
+        ctx.fillText(displayName, car.x, nameY);
+        ctx.shadowBlur = 0;
       }
     });
 

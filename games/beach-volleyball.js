@@ -373,13 +373,42 @@ class BeachVolleyballGame extends GameEngine {
       ctx.arc(eyeX + (p.team === 'left' ? 3 : -3), eyeY, 6, 0, Math.PI * 2);
       ctx.fill();
 
-      // Player name above
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 14px system-ui';
+      // Player name above - with background pill for visibility
+      const displayName = p.player.name || `Player ${p.player.number}`;
+      ctx.font = 'bold 16px system-ui';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      const displayName = p.player.name || `Player ${p.player.number}`;
-      ctx.fillText(displayName, p.x, p.y - this.playerRadius - 15);
+
+      const nameY = p.y - this.playerRadius - 20;
+      const textWidth = ctx.measureText(displayName).width;
+      const pillPadding = 10;
+      const pillHeight = 24;
+
+      // Background pill
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.beginPath();
+      const pillX = p.x - textWidth / 2 - pillPadding;
+      const pillW = textWidth + pillPadding * 2;
+      const pillR = pillHeight / 2;
+      ctx.moveTo(pillX + pillR, nameY - pillHeight / 2);
+      ctx.lineTo(pillX + pillW - pillR, nameY - pillHeight / 2);
+      ctx.arc(pillX + pillW - pillR, nameY, pillR, -Math.PI / 2, Math.PI / 2);
+      ctx.lineTo(pillX + pillR, nameY + pillHeight / 2);
+      ctx.arc(pillX + pillR, nameY, pillR, Math.PI / 2, -Math.PI / 2);
+      ctx.closePath();
+      ctx.fill();
+
+      // Team color border
+      ctx.strokeStyle = p.player.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Name text with slight glow
+      ctx.shadowColor = p.player.color;
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = 'white';
+      ctx.fillText(displayName, p.x, nameY);
+      ctx.shadowBlur = 0;
     });
 
     // Draw ball
@@ -414,59 +443,141 @@ class BeachVolleyballGame extends GameEngine {
       ctx.stroke();
     }
 
-    // Score display
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    ctx.fillRect(this.width / 2 - 100, 10, 200, 60);
+    // Score display - party style!
+    const scoreBoxW = 220;
+    const scoreBoxH = 70;
+    const scoreBoxX = this.width / 2 - scoreBoxW / 2;
+    const scoreBoxY = 15;
 
-    ctx.fillStyle = '#3498db';
-    ctx.font = 'bold 36px system-ui';
-    ctx.textAlign = 'right';
-    ctx.fillText(this.scores.left, this.width / 2 - 20, 52);
+    // Rounded rectangle background with gradient
+    ctx.save();
+    ctx.beginPath();
+    const radius = 20;
+    ctx.moveTo(scoreBoxX + radius, scoreBoxY);
+    ctx.lineTo(scoreBoxX + scoreBoxW - radius, scoreBoxY);
+    ctx.quadraticCurveTo(scoreBoxX + scoreBoxW, scoreBoxY, scoreBoxX + scoreBoxW, scoreBoxY + radius);
+    ctx.lineTo(scoreBoxX + scoreBoxW, scoreBoxY + scoreBoxH - radius);
+    ctx.quadraticCurveTo(scoreBoxX + scoreBoxW, scoreBoxY + scoreBoxH, scoreBoxX + scoreBoxW - radius, scoreBoxY + scoreBoxH);
+    ctx.lineTo(scoreBoxX + radius, scoreBoxY + scoreBoxH);
+    ctx.quadraticCurveTo(scoreBoxX, scoreBoxY + scoreBoxH, scoreBoxX, scoreBoxY + scoreBoxH - radius);
+    ctx.lineTo(scoreBoxX, scoreBoxY + radius);
+    ctx.quadraticCurveTo(scoreBoxX, scoreBoxY, scoreBoxX + radius, scoreBoxY);
+    ctx.closePath();
 
-    ctx.fillStyle = 'white';
+    // Gradient fill
+    const grad = ctx.createLinearGradient(scoreBoxX, scoreBoxY, scoreBoxX, scoreBoxY + scoreBoxH);
+    grad.addColorStop(0, 'rgba(30, 30, 50, 0.9)');
+    grad.addColorStop(1, 'rgba(20, 20, 40, 0.95)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Colorful border
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.6)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+
+    // Blue team score (left)
+    ctx.font = 'bold 42px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText('-', this.width / 2, 50);
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#3498db';
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = '#5dade2';
+    ctx.fillText(this.scores.left, this.width / 2 - 55, scoreBoxY + scoreBoxH / 2);
 
-    ctx.fillStyle = '#e74c3c';
-    ctx.textAlign = 'left';
-    ctx.fillText(this.scores.right, this.width / 2 + 20, 52);
+    // Dash separator
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 32px system-ui';
+    ctx.fillText('—', this.width / 2, scoreBoxY + scoreBoxH / 2);
 
-    // Serve indicator
+    // Red team score (right)
+    ctx.shadowColor = '#e74c3c';
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = '#ec7063';
+    ctx.font = 'bold 42px system-ui';
+    ctx.fillText(this.scores.right, this.width / 2 + 55, scoreBoxY + scoreBoxH / 2);
+    ctx.shadowBlur = 0;
+
+    // Serve indicator - styled box
     const playerCount = Object.keys(this.players).length;
     if (this.waitingForServe && !this.rallyOver) {
-      const boxW = 280;
-      const boxH = 50;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(this.width / 2 - boxW / 2, this.height / 2 - boxH / 2, boxW, boxH);
-      ctx.font = 'bold 22px system-ui';
+      const boxW = 300;
+      const boxH = 60;
+      const boxX = this.width / 2 - boxW / 2;
+      const boxY = this.height / 2 - boxH / 2;
+
+      // Draw rounded rectangle
+      ctx.beginPath();
+      const r = 15;
+      ctx.moveTo(boxX + r, boxY);
+      ctx.lineTo(boxX + boxW - r, boxY);
+      ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + r);
+      ctx.lineTo(boxX + boxW, boxY + boxH - r);
+      ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - r, boxY + boxH);
+      ctx.lineTo(boxX + r, boxY + boxH);
+      ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - r);
+      ctx.lineTo(boxX, boxY + r);
+      ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY);
+      ctx.closePath();
+
+      ctx.fillStyle = 'rgba(20, 20, 40, 0.9)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.font = 'bold 24px system-ui';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
       if (playerCount === 1) {
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 10;
         ctx.fillStyle = '#ffd700';
         ctx.fillText('Jump to serve!', this.width / 2, this.height / 2);
       } else {
-        ctx.fillStyle = this.servingTeam === 'left' ? '#3498db' : '#e74c3c';
-        const teamName = this.servingTeam === 'left' ? 'BLUE' : 'RED';
-        ctx.fillText(`${teamName} - Jump to serve!`, this.width / 2, this.height / 2);
+        const isLeft = this.servingTeam === 'left';
+        ctx.shadowColor = isLeft ? '#3498db' : '#e74c3c';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = isLeft ? '#5dade2' : '#ec7063';
+        const teamName = isLeft ? 'BLUE' : 'RED';
+        ctx.fillText(`${teamName} — Jump to serve!`, this.width / 2, this.height / 2);
       }
+      ctx.shadowBlur = 0;
     }
 
-    // Win message
+    // Win message - party celebration!
     if (this.scores.left >= this.winScore || this.scores.right >= this.winScore) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.fillStyle = 'rgba(10, 10, 30, 0.92)';
       ctx.fillRect(0, 0, this.width, this.height);
 
       const winner = this.scores.left >= this.winScore ? 'left' : 'right';
-      ctx.fillStyle = winner === 'left' ? '#3498db' : '#e74c3c';
-      ctx.font = 'bold 72px system-ui';
-      ctx.textAlign = 'center';
-      const winnerName = winner === 'left' ? 'BLUE' : 'RED';
-      ctx.fillText(`${winnerName} WINS!`, this.width / 2, this.height / 2);
+      const isLeft = winner === 'left';
+      const winnerName = isLeft ? 'BLUE' : 'RED';
 
-      ctx.fillStyle = 'white';
-      ctx.font = '32px system-ui';
-      ctx.fillText(`${this.scores.left} - ${this.scores.right}`, this.width / 2, this.height / 2 + 50);
+      // Glowing winner text
+      ctx.shadowColor = isLeft ? '#3498db' : '#e74c3c';
+      ctx.shadowBlur = 30;
+      ctx.fillStyle = isLeft ? '#5dade2' : '#ec7063';
+      ctx.font = 'bold 80px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${winnerName} WINS!`, this.width / 2, this.height / 2 - 20);
+
+      // Trophy emoji
+      ctx.shadowBlur = 0;
+      ctx.font = '60px system-ui';
+      ctx.fillText('🏆', this.width / 2, this.height / 2 - 100);
+
+      // Final score
+      ctx.font = 'bold 36px system-ui';
+      ctx.fillStyle = '#ffd700';
+      ctx.shadowColor = '#ffd700';
+      ctx.shadowBlur = 10;
+      ctx.fillText(`${this.scores.left} — ${this.scores.right}`, this.width / 2, this.height / 2 + 60);
+      ctx.shadowBlur = 0;
     }
   }
 }

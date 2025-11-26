@@ -3,79 +3,185 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Tilt Controller</title>
+  <title>Bumper Cars Controller</title>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: #1a1a2e;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
       color: white;
       font-family: system-ui, sans-serif;
       min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 20px;
       text-align: center;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
     }
-    h1 {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
+
+    .game-title {
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
-    #status {
-      font-size: 1.2rem;
+
+    .game-subtitle {
+      font-size: 1rem;
+      opacity: 0.6;
       margin-bottom: 2rem;
     }
+
+    #status {
+      font-size: 1.3rem;
+      margin-bottom: 2rem;
+      min-height: 2rem;
+    }
+
     #start-btn {
-      padding: 1rem 2rem;
-      font-size: 1.2rem;
-      background: #ffd700;
+      padding: 1.2rem 3rem;
+      font-size: 1.4rem;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
       color: #1a1a2e;
       border: none;
-      border-radius: 12px;
+      border-radius: 50px;
       cursor: pointer;
       font-weight: bold;
+      box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
     }
+
+    #start-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 30px rgba(255, 215, 0, 0.5);
+    }
+
+    #start-btn:active {
+      transform: scale(0.98);
+    }
+
     #start-btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+      transform: none;
     }
-    #tilt-display {
-      margin-top: 2rem;
-      font-size: 1rem;
-      opacity: 0.7;
-    }
-    .connected {
-      color: #4ade80;
-    }
-    .error {
-      color: #f87171;
-    }
-    #debug {
+
+    .connected { color: #4ade80; }
+    .error { color: #f87171; }
+
+    /* Controller view (shown when connected) */
+    #controller-view {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
       position: fixed;
-      bottom: 20px;
-      left: 20px;
-      right: 20px;
-      font-size: 0.8rem;
-      opacity: 0.5;
-      text-align: left;
+      top: 0;
+      left: 0;
+      padding: 40px 20px;
+    }
+
+    #controller-view.active {
+      display: flex;
+    }
+
+    .tilt-indicator {
+      width: 200px;
+      height: 200px;
+      border: 3px solid rgba(255, 215, 0, 0.3);
+      border-radius: 50%;
+      position: relative;
+      margin-bottom: 2rem;
+    }
+
+    .tilt-dot {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+      transition: transform 0.05s ease-out;
+    }
+
+    .tilt-crosshair {
+      position: absolute;
+      background: rgba(255, 215, 0, 0.2);
+    }
+
+    .tilt-crosshair.horizontal {
+      width: 100%;
+      height: 1px;
+      top: 50%;
+      left: 0;
+    }
+
+    .tilt-crosshair.vertical {
+      width: 1px;
+      height: 100%;
+      top: 0;
+      left: 50%;
+    }
+
+    .instruction {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+
+    .instruction-sub {
+      font-size: 1rem;
+      opacity: 0.6;
+    }
+
+    .player-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+      vertical-align: middle;
     }
   </style>
 </head>
 <body>
-  <h1>Tilt Controller</h1>
-  <p id="status">Tap button to connect</p>
-  <button id="start-btn">Start</button>
-  <div id="tilt-display"></div>
-  <div id="debug"></div>
+  <!-- Join view -->
+  <div id="join-view">
+    <div class="game-title">Bumper Cars</div>
+    <div class="game-subtitle">Sumo Arena</div>
+    <p id="status">Tap to join the game!</p>
+    <button id="start-btn">Join Game</button>
+  </div>
+
+  <!-- Controller view -->
+  <div id="controller-view">
+    <div class="tilt-indicator">
+      <div class="tilt-crosshair horizontal"></div>
+      <div class="tilt-crosshair vertical"></div>
+      <div class="tilt-dot" id="tilt-dot"></div>
+    </div>
+    <p class="instruction">Tilt to drive!</p>
+    <p class="instruction-sub">Push others off the arena</p>
+  </div>
 
   <script>
     let peer;
     let conn;
     let isConnected = false;
 
-    // Get room code from URL
     const params = new URLSearchParams(window.location.search);
     const roomCode = params.get('room');
 
@@ -99,6 +205,7 @@
           if (permission !== 'granted') {
             document.getElementById('status').textContent = 'Motion permission denied';
             document.getElementById('status').className = 'error';
+            document.getElementById('start-btn').disabled = false;
             return;
           }
         } catch (e) {
@@ -110,30 +217,27 @@
       peer = new Peer();
 
       peer.on('open', (id) => {
-        document.getElementById('debug').textContent = `My ID: ${id}`;
-
-        // Connect to display
         conn = peer.connect('tilt-' + roomCode);
 
         conn.on('open', () => {
           isConnected = true;
-          document.getElementById('status').textContent = 'Connected!';
-          document.getElementById('status').className = 'connected';
-          document.getElementById('start-btn').textContent = 'Tilt to move!';
+          showController();
           startTiltTracking();
         });
 
         conn.on('close', () => {
           isConnected = false;
-          document.getElementById('status').textContent = 'Disconnected';
+          showJoinView();
+          document.getElementById('status').textContent = 'Disconnected - tap to rejoin';
           document.getElementById('status').className = 'error';
           document.getElementById('start-btn').disabled = false;
-          document.getElementById('start-btn').textContent = 'Reconnect';
+          document.getElementById('start-btn').textContent = 'Rejoin';
         });
 
         conn.on('error', (err) => {
           document.getElementById('status').textContent = 'Connection error';
           document.getElementById('status').className = 'error';
+          document.getElementById('start-btn').disabled = false;
           console.error(err);
         });
       });
@@ -146,17 +250,26 @@
       });
     });
 
+    function showController() {
+      document.getElementById('join-view').style.display = 'none';
+      document.getElementById('controller-view').classList.add('active');
+    }
+
+    function showJoinView() {
+      document.getElementById('join-view').style.display = 'block';
+      document.getElementById('controller-view').classList.remove('active');
+    }
+
     function startTiltTracking() {
       let lastSend = 0;
-      const throttleMs = 50; // Send max 20 times per second
+      const throttleMs = 50;
+      const tiltDot = document.getElementById('tilt-dot');
 
       window.addEventListener('deviceorientation', (e) => {
         const now = Date.now();
         if (now - lastSend < throttleMs) return;
         lastSend = now;
 
-        // beta: front/back tilt (-180 to 180)
-        // gamma: left/right tilt (-90 to 90)
         const beta = e.beta || 0;
         const gamma = e.gamma || 0;
 
@@ -164,8 +277,10 @@
         const normalizedBeta = Math.max(-30, Math.min(30, beta - 30)) / 30;
         const normalizedGamma = Math.max(-30, Math.min(30, gamma)) / 30;
 
-        document.getElementById('tilt-display').textContent =
-          `Tilt: ${normalizedGamma.toFixed(2)} x, ${normalizedBeta.toFixed(2)} y`;
+        // Update visual indicator
+        const offsetX = normalizedGamma * 70; // Max 70px from center
+        const offsetY = normalizedBeta * 70;
+        tiltDot.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
 
         if (conn && conn.open) {
           conn.send({
@@ -176,6 +291,9 @@
         }
       });
     }
+
+    // Prevent scrolling/zooming
+    document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
   </script>
 </body>
 </html>

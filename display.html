@@ -79,23 +79,6 @@
       font-size: 1.2rem;
       z-index: 5;
     }
-    #debug-spawn {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      padding: 8px 12px;
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: rgba(255,255,255,0.4);
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      z-index: 5;
-    }
-    #debug-spawn:hover {
-      background: rgba(255,255,255,0.2);
-      color: rgba(255,255,255,0.7);
-    }
   </style>
 </head>
 <body>
@@ -108,7 +91,6 @@
 
   <canvas id="game-canvas"></canvas>
   <div id="player-count"></div>
-  <button id="debug-spawn">+ dummy</button>
 
   <script src="js/connection.js"></script>
   <script src="js/game-engine.js"></script>
@@ -179,20 +161,6 @@
         qrSection.classList.remove('minimized');
       }
     }
-
-    // Debug: spawn dummy player
-    let dummyCount = 0;
-    document.getElementById('debug-spawn').addEventListener('click', () => {
-      dummyCount++;
-      const dummyPlayer = {
-        id: 'dummy-' + dummyCount,
-        number: 'D' + dummyCount,
-        color: `hsl(${dummyCount * 90}, 50%, 50%)`,
-        input: { x: 0, y: 0 }
-      };
-      game.onPlayerJoin(dummyPlayer);
-      updateUI();
-    });
 
     init();
   </script>

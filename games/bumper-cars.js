@@ -10,7 +10,7 @@ class BumperCarsGame extends GameEngine {
     this.maxSpeed = 500;
     this.acceleration = 1000;
     this.friction = 0.97;
-    this.collisionForce = 800; // Force applied on collision based on speed
+    this.collisionForce = 1500; // Force applied on collision based on speed
 
     // Lives system
     this.maxLives = 3;
@@ -211,11 +211,18 @@ class BumperCarsGame extends GameEngine {
           b.vy += dot * ny;
 
           // Add extra force based on collision speed - this is the "push"!
-          const pushForce = this.collisionForce * (1 + relativeSpeed / 200);
+          const pushForce = this.collisionForce * (1 + relativeSpeed / 100);
           a.vx -= nx * pushForce * dt;
           a.vy -= ny * pushForce * dt;
           b.vx += nx * pushForce * dt;
           b.vy += ny * pushForce * dt;
+
+          // Bonus: instant velocity boost for extra bounce feel
+          const bounceBoost = 150;
+          a.vx -= nx * bounceBoost;
+          a.vy -= ny * bounceBoost;
+          b.vx += nx * bounceBoost;
+          b.vy += ny * bounceBoost;
 
           // Track who hit whom (for potential knockout credit)
           a.lastHitBy = b.player.id;

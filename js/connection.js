@@ -1,0 +1,120 @@
+// Connection Manager - Handles PeerJS connections and QR code display
+
+class ConnectionManager {
+  constructor(options = {}) {
+    this.players = {};
+    this.peer = null;
+    this.roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    this.controllerBaseUrl = options.controllerUrl || 'https://charud.github.io/peer-tilt-test/controller.html';
+    this.onPlayerJoin = options.onPlayerJoin || (() => {});
+    this.onPlayerLeave = options.onPlayerLeave || (() => {});
+    this.onPlayerInput = options.onPlayerInput || (() => {});
+    this.onReady = options.onReady || (() => {});
+    this.onError = options.onError || (() => {});
+  }
+
+  get controllerUrl() {
+    return `${this.controllerBaseUrl}?room=${this.roomCode}`;
+  }
+
+  get playerCount() {
+    return Object.keys(this.players).length;
+  }
+
+  get playerList() {
+    return Object.values(this.players);
+  }
+
+  async init() {
+    return new Promise((resolve, reject) => {
+      this.peer = new Peer('tilt-' + this.roomCode);
+
+      this.peer.on('open', (id) => {
+        console.log('Connection ready, room:', this.roomCode);
+        this.onReady(this.roomCode, this.controllerUrl);
+        resolve();
+      });
+
+      this.peer.on('connection', (conn) => this.handleConnection(conn));
+
+      this.peer.on('error', (err) => {
+        console.error('Peer error:', err);
+        this.onError(err);
+        reject(err);
+      });
+    });
+  }
+
+  handleConnection(conn) {
+    const peerId = conn.peer;
+    console.log('Player connecting:', peerId);
+
+    conn.on('open', () => {
+      const playerNumber = this.playerCount + 1;
+      const hue = (playerNumber * 137) % 360; // Golden angle for nice color distribution
+
+      const player = {
+        id: peerId,
+        peerId,
+        conn,
+        number: playerNumber,
+        color: `hsl(${hue}, 70%, 50%)`,
+        input: { x: 0, y: 0 }, // Normalized tilt input
+        connected: true
+      };
+
+      this.players[peerId] = player;
+      console.log('Player joined:', playerNumber);
+      this.onPlayerJoin(player);
+    });
+
+    conn.on('data', (data) => {
+      const player = this.players[peerId];
+      if (!player) return;
+
+      if (data.type === 'tilt') {
+        player.input.x = data.gamma; // -1 to 1, left/right
+        player.input.y = data.beta;  // -1 to 1, forward/back
+        this.onPlayerInput(player, data);
+      }
+    });
+
+    conn.on('close', () => {
+      const player = this.players[peerId];
+      if (player) {
+        console.log('Player left:', player.number);
+        player.connected = false;
+        this.onPlayerLeave(player);
+        delete this.players[peerId];
+      }
+    });
+  }
+
+  // Send message to specific player
+  sendToPlayer(playerId, message) {
+    const player = this.players[playerId];
+    if (player && player.conn.open) {
+      player.conn.send(message);
+    }
+  }
+
+  // Send message to all players
+  broadcast(message) {
+    Object.values(this.players).forEach(player => {
+      if (player.conn.open) {
+        player.conn.send(message);
+      }
+    });
+  }
+
+  destroy() {
+    if (this.peer) {
+      this.peer.destroy();
+    }
+  }
+}
+
+// Export for module usage
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = ConnectionManager;
+}

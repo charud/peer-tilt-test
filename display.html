@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tilt Test - Display</title>
+  <title>Tilt Party Games</title>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -12,46 +13,58 @@
       color: white;
       font-family: system-ui, sans-serif;
       min-height: 100vh;
+      overflow: hidden;
+    }
+    #game-canvas {
+      display: block;
+    }
+    #qr-section {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
-    }
-    #status {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      font-size: 1rem;
-      opacity: 0.7;
-    }
-    #qr-section {
       text-align: center;
+      z-index: 10;
+      background: #1a1a2e;
+      transition: all 0.3s ease;
     }
     #qr-section.minimized {
-      position: fixed;
+      top: auto;
+      left: auto;
       bottom: 20px;
       right: 20px;
-      z-index: 10;
+      width: auto;
+      height: auto;
+      background: transparent;
     }
-    #qr-section.minimized h1 {
+    #qr-section.minimized h1,
+    #qr-section.minimized #url,
+    #qr-section.minimized #status {
       display: none;
     }
     #qr-section.minimized #qr-code {
       padding: 10px;
     }
-    #qr-section.minimized #url {
-      display: none;
-    }
     #qr-section h1 {
       margin-bottom: 1rem;
-      font-size: 2rem;
+      font-size: 2.5rem;
+    }
+    #status {
+      font-size: 1rem;
+      opacity: 0.7;
+      margin-bottom: 1rem;
     }
     #qr-code {
       background: white;
       padding: 20px;
       border-radius: 12px;
       margin-bottom: 1rem;
+      display: inline-block;
     }
     #url {
       font-size: 0.9rem;
@@ -59,154 +72,93 @@
       word-break: break-all;
       max-width: 400px;
     }
-    #game-area {
-      display: none;
-      width: 100vw;
-      height: 100vh;
-      position: relative;
-    }
-    .player-box {
-      width: 80px;
-      height: 80px;
-      background: #ffd700;
-      border-radius: 12px;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 1.5rem;
-      color: #1a1a2e;
-      transition: background 0.3s;
-    }
-    #connected-count {
+    #player-count {
       position: fixed;
       top: 20px;
       right: 20px;
       font-size: 1.2rem;
+      z-index: 5;
     }
   </style>
 </head>
 <body>
-  <div id="status">Initializing...</div>
-  <div id="connected-count"></div>
-
   <div id="qr-section">
-    <h1>Scan to Connect</h1>
+    <h1>Scan to Play!</h1>
+    <p id="status">Initializing...</p>
     <div id="qr-code"></div>
     <p id="url"></p>
   </div>
 
-  <div id="game-area"></div>
+  <canvas id="game-canvas"></canvas>
+  <div id="player-count"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="js/connection.js"></script>
+  <script src="js/game-engine.js"></script>
+  <script src="games/bumper-cars.js"></script>
   <script>
-    const players = {};
-    let peer;
-
-    // Generate a short room code
-    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    // Controller is hosted on GitHub Pages (works from any network)
-    const controllerUrl = `https://charud.github.io/peer-tilt-test/controller.html?room=${roomCode}`;
+    let connection;
+    let game;
 
     async function init() {
-      document.getElementById('status').textContent = 'Connecting to PeerJS...';
+      const canvas = document.getElementById('game-canvas');
 
-      // Create peer with room code as ID
-      peer = new Peer('tilt-' + roomCode);
+      // Initialize connection manager
+      connection = new ConnectionManager({
+        controllerUrl: 'https://charud.github.io/peer-tilt-test/controller.html',
 
-      peer.on('open', (id) => {
-        document.getElementById('status').textContent = `Room: ${roomCode}`;
-        document.getElementById('url').textContent = controllerUrl;
+        onReady: (roomCode, url) => {
+          document.getElementById('status').textContent = `Room: ${roomCode}`;
+          document.getElementById('url').textContent = url;
 
-        // Generate QR code using qrcodejs library
-        new QRCode(document.getElementById('qr-code'), {
-          text: controllerUrl,
-          width: 200,
-          height: 200,
-          colorDark: '#1a1a2e',
-          colorLight: '#ffffff',
-          correctLevel: QRCode.CorrectLevel.L
-        });
+          // Generate QR code
+          new QRCode(document.getElementById('qr-code'), {
+            text: url,
+            width: 200,
+            height: 200,
+            colorDark: '#1a1a2e',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.L
+          });
+        },
+
+        onPlayerJoin: (player) => {
+          console.log('Player joined:', player.number);
+          game.onPlayerJoin(player);
+          updateUI();
+        },
+
+        onPlayerLeave: (player) => {
+          console.log('Player left:', player.number);
+          game.onPlayerLeave(player);
+          updateUI();
+        },
+
+        onPlayerInput: (player, data) => {
+          // Input is automatically stored in player.input
+        },
+
+        onError: (err) => {
+          document.getElementById('status').textContent = 'Error: ' + err.type;
+        }
       });
 
-      peer.on('connection', (conn) => {
-        const playerId = conn.peer;
-        console.log('Player connected:', playerId);
+      await connection.init();
 
-        conn.on('open', () => {
-          // Create player box
-          const box = document.createElement('div');
-          box.className = 'player-box';
-          box.id = 'player-' + playerId;
-          box.textContent = Object.keys(players).length + 1;
-          box.style.background = `hsl(${Math.random() * 360}, 70%, 50%)`;
-          document.getElementById('game-area').appendChild(box);
-
-          players[playerId] = {
-            conn,
-            box,
-            x: window.innerWidth / 2,
-            y: window.innerHeight / 2
-          };
-
-          updateConnectedCount();
-          showGameArea();
-        });
-
-        conn.on('data', (data) => {
-          if (data.type === 'tilt' && players[playerId]) {
-            // Update player position based on tilt
-            const player = players[playerId];
-            const sensitivity = 3;
-
-            player.x += data.gamma * sensitivity; // left/right tilt
-            player.y += data.beta * sensitivity;  // forward/back tilt
-
-            // Keep in bounds
-            player.x = Math.max(40, Math.min(window.innerWidth - 40, player.x));
-            player.y = Math.max(40, Math.min(window.innerHeight - 40, player.y));
-
-            player.box.style.left = player.x + 'px';
-            player.box.style.top = player.y + 'px';
-            player.box.style.transform = 'translate(-50%, -50%)';
-          }
-        });
-
-        conn.on('close', () => {
-          console.log('Player disconnected:', playerId);
-          if (players[playerId]) {
-            players[playerId].box.remove();
-            delete players[playerId];
-            updateConnectedCount();
-          }
-        });
-      });
-
-      peer.on('error', (err) => {
-        document.getElementById('status').textContent = 'Error: ' + err.type;
-        console.error(err);
-      });
+      // Initialize game
+      game = new BumperCarsGame(canvas, connection);
+      game.start();
     }
 
-    function showGameArea() {
-      document.getElementById('qr-section').classList.add('minimized');
-      document.getElementById('game-area').style.display = 'block';
-    }
-
-    function updateConnectedCount() {
-      const count = Object.keys(players).length;
-      document.getElementById('connected-count').textContent =
+    function updateUI() {
+      const count = connection.playerCount;
+      document.getElementById('player-count').textContent =
         count > 0 ? `Players: ${count}` : '';
 
-      // Show full QR again if no players
-      if (count === 0) {
-        document.getElementById('qr-section').classList.remove('minimized');
-        document.getElementById('game-area').style.display = 'none';
+      const qrSection = document.getElementById('qr-section');
+      if (count > 0) {
+        qrSection.classList.add('minimized');
+      } else {
+        qrSection.classList.remove('minimized');
       }
     }
 

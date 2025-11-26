@@ -1,4 +1,5 @@
-// Bumper Cars Game
+// Bumper Cars Game - Sumo Style!
+// Push other players off the platform. Last one standing wins!
 
 class BumperCarsGame extends GameEngine {
   constructor(canvas, connectionManager) {
@@ -6,10 +7,14 @@ class BumperCarsGame extends GameEngine {
     this.cars = {}; // player id -> car object
     this.arenaRadius = 0;
     this.carRadius = 40;
-    this.maxSpeed = 400;
-    this.acceleration = 800;
-    this.friction = 0.96;
-    this.bounceForce = 500;
+    this.maxSpeed = 500;
+    this.acceleration = 1000;
+    this.friction = 0.97;
+    this.collisionForce = 800; // Force applied on collision based on speed
+
+    // Lives system
+    this.maxLives = 3;
+    this.respawnDelay = 1500; // ms before respawn
 
     // Initialize center immediately
     this.centerX = window.innerWidth / 2;
@@ -36,11 +41,26 @@ class BumperCarsGame extends GameEngine {
       vx: 0,
       vy: 0,
       angle: 0,
-      hits: 0,
-      eliminated: false
+      lives: this.maxLives,
+      respawning: false,
+      respawnTime: 0,
+      eliminated: false,
+      knockouts: 0 // Track how many times this player knocked others off
     };
 
-    console.log('Car created for player', player.number, 'at', this.cars[player.id].x, this.cars[player.id].y);
+    console.log('Car created for player', player.number, 'with', this.maxLives, 'lives');
+  }
+
+  respawnCar(car) {
+    // Respawn in center area
+    const angle = Math.random() * Math.PI * 2;
+    const dist = Math.random() * this.arenaRadius * 0.2;
+
+    car.x = this.centerX + Math.cos(angle) * dist;
+    car.y = this.centerY + Math.sin(angle) * dist;
+    car.vx = 0;
+    car.vy = 0;
+    car.respawning = false;
   }
 
   onPlayerLeave(player) {
@@ -49,10 +69,19 @@ class BumperCarsGame extends GameEngine {
 
   update(dt) {
     const carList = Object.values(this.cars);
+    const now = performance.now();
 
     // Update each car
     carList.forEach(car => {
       if (car.eliminated) return;
+
+      // Handle respawning
+      if (car.respawning) {
+        if (now > car.respawnTime) {
+          this.respawnCar(car);
+        }
+        return; // Don't update while respawning
+      }
 
       const input = car.player.input;
 
@@ -80,24 +109,25 @@ class BumperCarsGame extends GameEngine {
         car.angle = Math.atan2(car.vy, car.vx);
       }
 
-      // Check arena boundary
+      // Check if fallen off arena
       const distFromCenter = Math.sqrt(
         Math.pow(car.x - this.centerX, 2) +
         Math.pow(car.y - this.centerY, 2)
       );
 
-      if (distFromCenter > this.arenaRadius - this.carRadius) {
-        // Push back into arena
-        const angle = Math.atan2(car.y - this.centerY, car.x - this.centerX);
-        car.x = this.centerX + Math.cos(angle) * (this.arenaRadius - this.carRadius);
-        car.y = this.centerY + Math.sin(angle) * (this.arenaRadius - this.carRadius);
+      if (distFromCenter > this.arenaRadius + this.carRadius) {
+        // Fell off!
+        car.lives--;
+        console.log('Player', car.player.number, 'fell off! Lives:', car.lives);
 
-        // Bounce off wall
-        const nx = Math.cos(angle);
-        const ny = Math.sin(angle);
-        const dot = car.vx * nx + car.vy * ny;
-        car.vx -= 2 * dot * nx * 0.7;
-        car.vy -= 2 * dot * ny * 0.7;
+        if (car.lives <= 0) {
+          car.eliminated = true;
+          console.log('Player', car.player.number, 'ELIMINATED!');
+        } else {
+          // Start respawn timer
+          car.respawning = true;
+          car.respawnTime = now + this.respawnDelay;
+        }
       }
     });
 
@@ -106,7 +136,7 @@ class BumperCarsGame extends GameEngine {
       for (let j = i + 1; j < carList.length; j++) {
         const a = carList[i];
         const b = carList[j];
-        if (a.eliminated || b.eliminated) continue;
+        if (a.eliminated || b.eliminated || a.respawning || b.respawning) continue;
 
         const dx = b.x - a.x;
         const dy = b.y - a.y;
@@ -125,9 +155,12 @@ class BumperCarsGame extends GameEngine {
           b.x += nx * overlap / 2;
           b.y += ny * overlap / 2;
 
-          // Exchange momentum (elastic collision)
+          // Calculate relative velocity
           const dvx = a.vx - b.vx;
           const dvy = a.vy - b.vy;
+          const relativeSpeed = Math.sqrt(dvx * dvx + dvy * dvy);
+
+          // Exchange momentum (elastic collision)
           const dot = dvx * nx + dvy * ny;
 
           a.vx -= dot * nx;
@@ -135,15 +168,16 @@ class BumperCarsGame extends GameEngine {
           b.vx += dot * nx;
           b.vy += dot * ny;
 
-          // Add extra bounce
-          a.vx -= nx * this.bounceForce * dt;
-          a.vy -= ny * this.bounceForce * dt;
-          b.vx += nx * this.bounceForce * dt;
-          b.vy += ny * this.bounceForce * dt;
+          // Add extra force based on collision speed - this is the "push"!
+          const pushForce = this.collisionForce * (1 + relativeSpeed / 200);
+          a.vx -= nx * pushForce * dt;
+          a.vy -= ny * pushForce * dt;
+          b.vx += nx * pushForce * dt;
+          b.vy += ny * pushForce * dt;
 
-          // Track hits
-          a.hits++;
-          b.hits++;
+          // Track who hit whom (for potential knockout credit)
+          a.lastHitBy = b.player.id;
+          b.lastHitBy = a.player.id;
         }
       }
     }
@@ -173,6 +207,18 @@ class BumperCarsGame extends GameEngine {
     Object.values(this.cars).forEach(car => {
       if (car.eliminated) return;
 
+      // Skip rendering if respawning (blinking effect)
+      if (car.respawning) {
+        // Draw ghost at respawn point
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = car.player.color;
+        ctx.beginPath();
+        ctx.arc(this.centerX, this.centerY, this.carRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        return;
+      }
+
       ctx.save();
       ctx.translate(car.x, car.y);
       ctx.rotate(car.angle);
@@ -198,15 +244,19 @@ class BumperCarsGame extends GameEngine {
       ctx.fillText(car.player.number, car.x, car.y - this.carRadius - 15);
     });
 
-    // Debug: show input values
+    // Draw scoreboard / lives
     ctx.fillStyle = 'white';
-    ctx.font = '16px system-ui';
+    ctx.font = 'bold 20px system-ui';
     ctx.textAlign = 'left';
     let y = 30;
-    Object.values(this.cars).forEach(car => {
-      const input = car.player.input;
-      ctx.fillText(`P${car.player.number}: x=${input.x.toFixed(2)} y=${input.y.toFixed(2)} vel=${Math.sqrt(car.vx*car.vx + car.vy*car.vy).toFixed(0)}`, 20, y);
-      y += 25;
+
+    const sortedCars = Object.values(this.cars).sort((a, b) => b.lives - a.lives);
+    sortedCars.forEach(car => {
+      const hearts = '❤️'.repeat(Math.max(0, car.lives)) + '🖤'.repeat(Math.max(0, this.maxLives - car.lives));
+      const status = car.eliminated ? ' (OUT)' : car.respawning ? ' (...)' : '';
+      ctx.fillStyle = car.eliminated ? '#666' : car.player.color;
+      ctx.fillText(`P${car.player.number}: ${hearts}${status}`, 20, y);
+      y += 30;
     });
   }
 }

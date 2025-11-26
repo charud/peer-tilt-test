@@ -434,18 +434,21 @@ class BeachVolleyballGame extends GameEngine {
     // Serve indicator
     const playerCount = Object.keys(this.players).length;
     if (this.waitingForServe && !this.rallyOver) {
+      const boxW = 280;
+      const boxH = 50;
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(this.width / 2 - 140, this.height / 2 - 30, 280, 60);
+      ctx.fillRect(this.width / 2 - boxW / 2, this.height / 2 - boxH / 2, boxW, boxH);
       ctx.font = 'bold 22px system-ui';
       ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
 
       if (playerCount === 1) {
         ctx.fillStyle = '#ffd700';
-        ctx.fillText('Jump to serve!', this.width / 2, this.height / 2 + 8);
+        ctx.fillText('Jump to serve!', this.width / 2, this.height / 2);
       } else {
         ctx.fillStyle = this.servingTeam === 'left' ? '#3498db' : '#e74c3c';
         const teamName = this.servingTeam === 'left' ? 'BLUE' : 'RED';
-        ctx.fillText(`${teamName} - Jump to serve!`, this.width / 2, this.height / 2 + 8);
+        ctx.fillText(`${teamName} - Jump to serve!`, this.width / 2, this.height / 2);
       }
     }
 

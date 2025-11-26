@@ -335,28 +335,30 @@ class BumperCarsGame extends GameEngine {
 
       ctx.restore();
 
-      // Player number above car (only when not dropping)
+      // Player name above car (only when not dropping)
       if (!car.dropping) {
         ctx.fillStyle = 'white';
-        ctx.font = 'bold 24px system-ui';
+        ctx.font = 'bold 16px system-ui';
         ctx.textAlign = 'center';
-        ctx.fillText(car.player.number, car.x, car.y - this.carRadius - 15);
+        const displayName = car.player.name || `Player ${car.player.number}`;
+        ctx.fillText(displayName, car.x, car.y - this.carRadius - 15);
       }
     });
 
     // Draw scoreboard / lives
     ctx.fillStyle = 'white';
-    ctx.font = 'bold 20px system-ui';
+    ctx.font = 'bold 18px system-ui';
     ctx.textAlign = 'left';
     let y = 30;
 
     const sortedCars = Object.values(this.cars).sort((a, b) => b.lives - a.lives);
     sortedCars.forEach(car => {
+      const displayName = car.player.name || `P${car.player.number}`;
       const hearts = '❤️'.repeat(Math.max(0, car.lives)) + '🖤'.repeat(Math.max(0, this.maxLives - car.lives));
       const status = car.eliminated ? ' (OUT)' : car.respawning ? ' (...)' : '';
       ctx.fillStyle = car.eliminated ? '#666' : car.player.color;
-      ctx.fillText(`P${car.player.number}: ${hearts}${status}`, 20, y);
-      y += 30;
+      ctx.fillText(`${displayName}: ${hearts}${status}`, 20, y);
+      y += 28;
     });
   }
 }

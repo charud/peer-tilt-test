@@ -21,7 +21,7 @@ class BeachVolleyballGame extends GameEngine {
 
     // Ball settings
     this.ball = null;
-    this.ballRadius = 25;
+    this.ballRadius = 32;
     this.ballGravity = 800;
     this.ballBounce = 0.7;
     this.ballMaxSpeed = 1000;
@@ -373,12 +373,13 @@ class BeachVolleyballGame extends GameEngine {
       ctx.arc(eyeX + (p.team === 'left' ? 3 : -3), eyeY, 6, 0, Math.PI * 2);
       ctx.fill();
 
-      // Player number above
+      // Player name above
       ctx.fillStyle = 'white';
-      ctx.font = 'bold 18px system-ui';
+      ctx.font = 'bold 14px system-ui';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(p.player.number, p.x, p.y - this.playerRadius - 15);
+      const displayName = p.player.name || `Player ${p.player.number}`;
+      ctx.fillText(displayName, p.x, p.y - this.playerRadius - 15);
     });
 
     // Draw ball

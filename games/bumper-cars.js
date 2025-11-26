@@ -375,10 +375,9 @@ class BumperCarsGame extends GameEngine {
       }
     });
 
-    // Draw scoreboard / lives
-    ctx.fillStyle = 'white';
+    // Draw scoreboard / lives (top-right to avoid QR code)
     ctx.font = 'bold 18px system-ui';
-    ctx.textAlign = 'left';
+    ctx.textAlign = 'right';
     let y = 30;
 
     const sortedCars = Object.values(this.cars).sort((a, b) => b.lives - a.lives);
@@ -387,9 +386,16 @@ class BumperCarsGame extends GameEngine {
       const hearts = '❤️'.repeat(Math.max(0, car.lives)) + '🖤'.repeat(Math.max(0, this.maxLives - car.lives));
       const status = car.eliminated ? ' (OUT)' : car.respawning ? ' (...)' : '';
       ctx.fillStyle = car.eliminated ? '#666' : car.player.color;
-      ctx.fillText(`${displayName}: ${hearts}${status}`, 20, y);
+      ctx.fillText(`${displayName}: ${hearts}${status}`, this.width - 20, y);
       y += 28;
     });
+
+    // Instructions at bottom
+    ctx.font = '16px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.fillText('Tilt to drive • Bump others off the arena!', this.width / 2, this.height - 20);
   }
 }
 

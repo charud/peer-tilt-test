@@ -330,6 +330,25 @@
       color: white;
     }
 
+    /* Restart button */
+    .restart-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      color: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+    }
+
+    .restart-btn:active {
+      background: rgba(255, 215, 0, 0.3);
+      color: white;
+    }
+
     /* Action button (jump/serve) */
     .action-btn {
       width: 140px;
@@ -434,6 +453,7 @@
   <div id="controller-view" class="view">
     <button id="leave-btn-game" class="leave-btn">Leave</button>
     <button id="end-game-btn" class="end-game-btn">End Game</button>
+    <button id="restart-btn" class="restart-btn">Restart</button>
     <div class="game-header">
       <div class="game-name" id="current-game-name">Bumper Cars</div>
     </div>
@@ -689,6 +709,13 @@
     document.getElementById('end-game-btn').addEventListener('click', () => {
       if (conn && conn.open) {
         conn.send({ type: 'end-game' });
+      }
+    });
+
+    // Restart game button
+    document.getElementById('restart-btn').addEventListener('click', () => {
+      if (conn && conn.open) {
+        conn.send({ type: 'restart-game' });
       }
     });
 

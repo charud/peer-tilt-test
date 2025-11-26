@@ -1,5 +1,5 @@
-// Beach Volleyball Game
-// 2v2 (or more) volleyball with tilt controls
+// Beach Volleyball Game (Slime Volleyball style)
+// Players move left/right and jump to hit the ball
 
 class BeachVolleyballGame extends GameEngine {
   constructor(canvas, connectionManager) {
@@ -8,22 +8,23 @@ class BeachVolleyballGame extends GameEngine {
     // Court dimensions (set in resize)
     this.courtLeft = 0;
     this.courtRight = 0;
-    this.courtTop = 0;
-    this.courtBottom = 0;
+    this.groundY = 0;
     this.netX = 0;
+    this.netHeight = 0;
 
-    // Player settings
-    this.playerRadius = 35;
-    this.playerSpeed = 400;
-    this.players = {}; // player id -> player object
+    // Player settings (slime style - semicircles)
+    this.playerRadius = 50;
+    this.playerSpeed = 450;
+    this.jumpForce = 650;
+    this.playerGravity = 1200;
+    this.players = {};
 
     // Ball settings
     this.ball = null;
-    this.ballRadius = 20;
-    this.ballGravity = 600;
-    this.ballBounce = 0.75;
-    this.ballMaxSpeed = 800;
-    this.ballHitForce = 500;
+    this.ballRadius = 25;
+    this.ballGravity = 800;
+    this.ballBounce = 0.7;
+    this.ballMaxSpeed = 1000;
 
     // Game state
     this.scores = { left: 0, right: 0 };
@@ -34,31 +35,32 @@ class BeachVolleyballGame extends GameEngine {
     this.rallyEndTime = 0;
     this.rallyPauseMs = 1500;
 
-    // Initialize
+    // Force initial resize to set dimensions
+    this.resize();
     this.resetBall();
   }
 
   resize() {
     super.resize();
 
-    // Court boundaries with padding
+    // Court boundaries
     const padding = 50;
     this.courtLeft = padding;
     this.courtRight = this.width - padding;
-    this.courtTop = padding + 60; // Room for score
-    this.courtBottom = this.height - padding;
+    this.groundY = this.height - 100;
     this.netX = this.width / 2;
+    this.netHeight = 120; // Short net that players can jump over
   }
 
   resetBall() {
-    // Position ball on serving team's side
+    // Position ball above serving team's player
     const serveX = this.servingTeam === 'left'
       ? this.width * 0.25
       : this.width * 0.75;
 
     this.ball = {
       x: serveX,
-      y: this.height * 0.4,
+      y: this.groundY - 200,
       vx: 0,
       vy: 0,
       lastHitBy: null
@@ -73,16 +75,17 @@ class BeachVolleyballGame extends GameEngine {
     const team = leftCount <= rightCount ? 'left' : 'right';
 
     // Position player on their side
-    const teamPlayers = Object.values(this.players).filter(p => p.team === team);
-    const yOffset = (teamPlayers.length + 1) * 80;
+    const baseX = team === 'left' ? this.width * 0.25 : this.width * 0.75;
 
     this.players[player.id] = {
       player,
       team,
-      x: team === 'left' ? this.width * 0.25 : this.width * 0.75,
-      y: this.height / 2 + yOffset - 120,
+      x: baseX,
+      y: this.groundY,
       vx: 0,
-      vy: 0
+      vy: 0,
+      onGround: true,
+      jumpRequested: false
     };
 
     console.log('Player', player.number, 'joined team', team);
@@ -92,8 +95,20 @@ class BeachVolleyballGame extends GameEngine {
     delete this.players[player.id];
   }
 
+  // Called when player taps jump button
+  jump(playerId) {
+    const p = this.players[playerId];
+    if (!p) return;
+    p.jumpRequested = true;
+  }
+
+  // Serve is now triggered by jump button for serving team
   serve(playerId) {
-    if (!this.waitingForServe) return;
+    if (!this.waitingForServe) {
+      // If not waiting for serve, treat as jump
+      this.jump(playerId);
+      return;
+    }
 
     const p = this.players[playerId];
     if (!p) return;
@@ -103,10 +118,10 @@ class BeachVolleyballGame extends GameEngine {
 
     console.log('Player', p.player.number, 'served!');
 
-    // Launch ball towards opponent
+    // Launch ball upward and toward opponent
     const direction = this.servingTeam === 'left' ? 1 : -1;
-    this.ball.vx = direction * 300;
-    this.ball.vy = -250;
+    this.ball.vx = direction * 200;
+    this.ball.vy = -400;
     this.waitingForServe = false;
   }
 
@@ -126,26 +141,41 @@ class BeachVolleyballGame extends GameEngine {
     Object.values(this.players).forEach(p => {
       const input = p.player.input;
 
-      // Move based on tilt
+      // Horizontal movement from tilt (left/right only)
       p.vx = input.x * this.playerSpeed;
-      p.vy = input.y * this.playerSpeed;
 
+      // Handle jump
+      if (p.jumpRequested && p.onGround) {
+        p.vy = -this.jumpForce;
+        p.onGround = false;
+      }
+      p.jumpRequested = false;
+
+      // Apply gravity
+      if (!p.onGround) {
+        p.vy += this.playerGravity * dt;
+      }
+
+      // Update position
       p.x += p.vx * dt;
       p.y += p.vy * dt;
 
-      // Constrain to team's half
-      const halfWidth = (this.courtRight - this.courtLeft) / 2 - this.playerRadius;
-      if (p.team === 'left') {
-        p.x = Math.max(this.courtLeft + this.playerRadius, Math.min(this.netX - this.playerRadius - 10, p.x));
-      } else {
-        p.x = Math.max(this.netX + this.playerRadius + 10, Math.min(this.courtRight - this.playerRadius, p.x));
+      // Ground collision
+      if (p.y >= this.groundY) {
+        p.y = this.groundY;
+        p.vy = 0;
+        p.onGround = true;
       }
 
-      // Constrain vertically
-      p.y = Math.max(this.courtTop + this.playerRadius, Math.min(this.courtBottom - this.playerRadius, p.y));
+      // Constrain to team's half horizontally
+      if (p.team === 'left') {
+        p.x = Math.max(this.courtLeft + this.playerRadius, Math.min(this.netX - this.playerRadius - 5, p.x));
+      } else {
+        p.x = Math.max(this.netX + this.playerRadius + 5, Math.min(this.courtRight - this.playerRadius, p.x));
+      }
     });
 
-    // Update ball if not waiting for serve
+    // Update ball
     if (!this.waitingForServe) {
       // Apply gravity
       this.ball.vy += this.ballGravity * dt;
@@ -154,15 +184,17 @@ class BeachVolleyballGame extends GameEngine {
       this.ball.x += this.ball.vx * dt;
       this.ball.y += this.ball.vy * dt;
 
-      // Ball collision with players
+      // Ball collision with players (slime style - semicircle collision)
       Object.values(this.players).forEach(p => {
+        // Check collision with top half of player (semicircle)
         const dx = this.ball.x - p.x;
         const dy = this.ball.y - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const minDist = this.ballRadius + this.playerRadius;
 
-        if (dist < minDist && dist > 0) {
-          // Bounce ball off player
+        // Only collide if ball is above player's base and within radius
+        if (dist < minDist && dist > 0 && this.ball.y < p.y + 10) {
+          // Normal vector from player center to ball
           const nx = dx / dist;
           const ny = dy / dist;
 
@@ -170,10 +202,18 @@ class BeachVolleyballGame extends GameEngine {
           this.ball.x = p.x + nx * minDist;
           this.ball.y = p.y + ny * minDist;
 
-          // Reflect velocity and add force
+          // Reflect velocity off the slime surface
           const dot = this.ball.vx * nx + this.ball.vy * ny;
-          this.ball.vx = this.ball.vx - 2 * dot * nx + nx * this.ballHitForce + p.vx * 0.5;
-          this.ball.vy = this.ball.vy - 2 * dot * ny + ny * this.ballHitForce * 0.5 - 200; // Pop up
+
+          // Add player's velocity influence
+          const hitPower = 600;
+          this.ball.vx = this.ball.vx - 2 * dot * nx + p.vx * 0.3;
+          this.ball.vy = this.ball.vy - 2 * dot * ny + hitPower * ny;
+
+          // Ensure ball goes upward if hit from above
+          if (this.ball.vy > -100) {
+            this.ball.vy = -300;
+          }
 
           // Clamp speed
           const speed = Math.sqrt(this.ball.vx * this.ball.vx + this.ball.vy * this.ball.vy);
@@ -186,36 +226,42 @@ class BeachVolleyballGame extends GameEngine {
         }
       });
 
-      // Ball collision with net (simple barrier)
-      if (Math.abs(this.ball.x - this.netX) < this.ballRadius + 5 &&
-          this.ball.y > this.height * 0.4) {
+      // Ball collision with net
+      const netTop = this.groundY - this.netHeight;
+      if (Math.abs(this.ball.x - this.netX) < this.ballRadius + 8 &&
+          this.ball.y + this.ballRadius > netTop) {
         // Bounce off net
-        this.ball.vx *= -0.5;
+        this.ball.vx *= -0.6;
         this.ball.x = this.ball.x < this.netX
-          ? this.netX - this.ballRadius - 5
-          : this.netX + this.ballRadius + 5;
+          ? this.netX - this.ballRadius - 8
+          : this.netX + this.ballRadius + 8;
       }
 
-      // Ball out of bounds - top
-      if (this.ball.y < this.courtTop) {
-        this.ball.y = this.courtTop;
+      // Ball collision with ceiling (top of screen)
+      if (this.ball.y - this.ballRadius < 80) {
+        this.ball.y = 80 + this.ballRadius;
         this.ball.vy *= -this.ballBounce;
       }
 
       // Ball out of bounds - sides
-      if (this.ball.x < this.courtLeft || this.ball.x > this.courtRight) {
-        // Point for other team
-        const scoringTeam = this.ball.x < this.courtLeft ? 'right' : 'left';
-        this.scorePoint(scoringTeam);
+      if (this.ball.x - this.ballRadius < this.courtLeft) {
+        this.ball.x = this.courtLeft + this.ballRadius;
+        this.ball.vx *= -this.ballBounce;
+      }
+      if (this.ball.x + this.ballRadius > this.courtRight) {
+        this.ball.x = this.courtRight - this.ballRadius;
+        this.ball.vx *= -this.ballBounce;
       }
 
-      // Ball hit floor
-      if (this.ball.y > this.courtBottom - this.ballRadius) {
-        // Point for team on other side
+      // Ball hit ground - point scored
+      if (this.ball.y + this.ballRadius > this.groundY) {
         const ballSide = this.ball.x < this.netX ? 'left' : 'right';
         const scoringTeam = ballSide === 'left' ? 'right' : 'left';
         this.scorePoint(scoringTeam);
       }
+    } else {
+      // Ball floats waiting for serve
+      this.ball.y = this.groundY - 180 + Math.sin(now / 300) * 10;
     }
   }
 
@@ -227,142 +273,193 @@ class BeachVolleyballGame extends GameEngine {
     this.rallyOver = true;
     this.rallyEndTime = performance.now();
 
-    console.log('Point for', team, '! Score:', this.scores.left, '-', this.scores.right);
+    // Reset player positions
+    Object.values(this.players).forEach(p => {
+      p.x = p.team === 'left' ? this.width * 0.25 : this.width * 0.75;
+      p.y = this.groundY;
+      p.vy = 0;
+      p.onGround = true;
+    });
 
-    // Check for win
-    if (this.scores[team] >= this.winScore) {
-      console.log(team, 'WINS!');
-      // Could add win screen here
-    }
+    console.log('Point for', team, '! Score:', this.scores.left, '-', this.scores.right);
   }
 
   render() {
     const ctx = this.ctx;
 
-    // Beach background
-    ctx.fillStyle = '#f4d03f'; // Sand
-    ctx.fillRect(0, 0, this.width, this.height);
-
-    // Sky gradient at top
-    const skyGradient = ctx.createLinearGradient(0, 0, 0, this.height * 0.3);
+    // Sky background
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, this.height);
     skyGradient.addColorStop(0, '#87CEEB');
+    skyGradient.addColorStop(0.6, '#E0F6FF');
     skyGradient.addColorStop(1, '#f4d03f');
     ctx.fillStyle = skyGradient;
-    ctx.fillRect(0, 0, this.width, this.height * 0.3);
+    ctx.fillRect(0, 0, this.width, this.height);
 
-    // Court area
-    ctx.fillStyle = '#e6c229';
-    ctx.fillRect(this.courtLeft, this.courtTop, this.courtRight - this.courtLeft, this.courtBottom - this.courtTop);
+    // Sun
+    ctx.fillStyle = '#FFE066';
+    ctx.beginPath();
+    ctx.arc(this.width - 120, 100, 50, 0, Math.PI * 2);
+    ctx.fill();
 
-    // Court lines
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(this.courtLeft, this.courtTop, this.courtRight - this.courtLeft, this.courtBottom - this.courtTop);
+    // Ground/Sand
+    ctx.fillStyle = '#f4d03f';
+    ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
 
-    // Net
-    ctx.strokeStyle = '#333';
+    // Ground line
+    ctx.strokeStyle = '#d4b02f';
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(this.netX, this.height * 0.35);
-    ctx.lineTo(this.netX, this.courtBottom);
+    ctx.moveTo(this.courtLeft, this.groundY);
+    ctx.lineTo(this.courtRight, this.groundY);
     ctx.stroke();
 
-    // Net pattern
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+    // Net post
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(this.netX - 6, this.groundY - this.netHeight - 20, 12, this.netHeight + 20);
+
+    // Net
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    const netTop = this.groundY - this.netHeight;
+    ctx.beginPath();
+    ctx.moveTo(this.netX, netTop);
+    ctx.lineTo(this.netX, this.groundY);
+    ctx.stroke();
+
+    // Net mesh pattern
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.lineWidth = 1;
-    for (let y = this.height * 0.35; y < this.courtBottom; y += 20) {
+    for (let y = netTop; y < this.groundY; y += 15) {
       ctx.beginPath();
-      ctx.moveTo(this.netX - 3, y);
-      ctx.lineTo(this.netX + 3, y);
+      ctx.moveTo(this.netX - 8, y);
+      ctx.lineTo(this.netX + 8, y);
       ctx.stroke();
     }
 
-    // Draw players
+    // Draw players (slime style - semicircles)
     Object.values(this.players).forEach(p => {
-      // Shadow
+      // Shadow on ground
+      const shadowY = this.groundY;
+      const shadowScale = 1 - (this.groundY - p.y) / 400;
       ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
       ctx.beginPath();
-      ctx.ellipse(p.x, this.courtBottom - 5, this.playerRadius * 0.8, this.playerRadius * 0.3, 0, 0, Math.PI * 2);
+      ctx.ellipse(p.x, shadowY + 5, this.playerRadius * shadowScale, 10 * shadowScale, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Player body
+      // Slime body (semicircle)
       ctx.fillStyle = p.player.color;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, this.playerRadius, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, this.playerRadius, Math.PI, 0, false);
+      ctx.lineTo(p.x + this.playerRadius, p.y);
+      ctx.lineTo(p.x - this.playerRadius, p.y);
+      ctx.closePath();
       ctx.fill();
 
-      // Team indicator
-      ctx.fillStyle = p.team === 'left' ? '#3498db' : '#e74c3c';
+      // Slime outline
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(p.x, p.y - this.playerRadius - 10, 8, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, this.playerRadius, Math.PI, 0, false);
+      ctx.stroke();
+
+      // Eye
+      const eyeX = p.x + (p.team === 'left' ? 15 : -15);
+      const eyeY = p.y - 20;
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(eyeX, eyeY, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      ctx.arc(eyeX + (p.team === 'left' ? 3 : -3), eyeY, 6, 0, Math.PI * 2);
       ctx.fill();
 
-      // Player number
+      // Player number above
       ctx.fillStyle = 'white';
-      ctx.font = 'bold 20px system-ui';
+      ctx.font = 'bold 18px system-ui';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(p.player.number, p.x, p.y);
+      ctx.fillText(p.player.number, p.x, p.y - this.playerRadius - 15);
     });
 
     // Draw ball
     if (this.ball) {
-      // Ball shadow
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      // Ball shadow on ground
+      const shadowY = this.groundY;
+      const shadowScale = Math.max(0.3, 1 - (this.groundY - this.ball.y) / 400);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
       ctx.beginPath();
-      ctx.ellipse(this.ball.x, this.courtBottom - 5, this.ballRadius * 0.8, this.ballRadius * 0.3, 0, 0, Math.PI * 2);
+      ctx.ellipse(this.ball.x, shadowY + 5, this.ballRadius * shadowScale, 8 * shadowScale, 0, 0, Math.PI * 2);
       ctx.fill();
 
       // Ball
-      ctx.fillStyle = 'white';
+      ctx.fillStyle = '#fff';
       ctx.beginPath();
       ctx.arc(this.ball.x, this.ball.y, this.ballRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      // Ball stripes (volleyball look)
-      ctx.strokeStyle = '#ccc';
+      // Volleyball pattern
+      ctx.strokeStyle = '#ddd';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(this.ball.x, this.ball.y, this.ballRadius * 0.7, 0, Math.PI * 2);
+      ctx.arc(this.ball.x, this.ball.y, this.ballRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Cross lines on ball
+      ctx.beginPath();
+      ctx.moveTo(this.ball.x - this.ballRadius, this.ball.y);
+      ctx.lineTo(this.ball.x + this.ballRadius, this.ball.y);
+      ctx.moveTo(this.ball.x, this.ball.y - this.ballRadius);
+      ctx.lineTo(this.ball.x, this.ball.y + this.ballRadius);
       ctx.stroke();
     }
 
     // Score display
-    ctx.fillStyle = 'white';
-    ctx.font = 'bold 48px system-ui';
-    ctx.textAlign = 'center';
-    ctx.fillText(`${this.scores.left}`, this.width * 0.25, 50);
-    ctx.fillText(`${this.scores.right}`, this.width * 0.75, 50);
-    ctx.font = '24px system-ui';
-    ctx.fillText('-', this.width * 0.5, 45);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillRect(this.width / 2 - 100, 10, 200, 60);
 
-    // Team labels
-    ctx.font = '16px system-ui';
     ctx.fillStyle = '#3498db';
-    ctx.fillText('BLUE', this.width * 0.25, 75);
+    ctx.font = 'bold 36px system-ui';
+    ctx.textAlign = 'right';
+    ctx.fillText(this.scores.left, this.width / 2 - 20, 52);
+
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.fillText('-', this.width / 2, 50);
+
     ctx.fillStyle = '#e74c3c';
-    ctx.fillText('RED', this.width * 0.75, 75);
+    ctx.textAlign = 'left';
+    ctx.fillText(this.scores.right, this.width / 2 + 20, 52);
 
     // Serve indicator
-    if (this.waitingForServe) {
+    if (this.waitingForServe && !this.rallyOver) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(this.width / 2 - 150, this.height / 2 - 30, 300, 60);
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 20px system-ui';
+      ctx.fillRect(this.width / 2 - 140, this.height / 2 - 40, 280, 80);
+      ctx.fillStyle = this.servingTeam === 'left' ? '#3498db' : '#e74c3c';
+      ctx.font = 'bold 24px system-ui';
       ctx.textAlign = 'center';
       const teamName = this.servingTeam === 'left' ? 'BLUE' : 'RED';
-      ctx.fillText(`${teamName} team: Tap SERVE!`, this.width / 2, this.height / 2 + 5);
+      ctx.fillText(`${teamName} SERVE!`, this.width / 2, this.height / 2 - 5);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.font = '16px system-ui';
+      ctx.fillText('Tap JUMP to serve', this.width / 2, this.height / 2 + 22);
     }
 
     // Win message
     if (this.scores.left >= this.winScore || this.scores.right >= this.winScore) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
       ctx.fillRect(0, 0, this.width, this.height);
-      ctx.fillStyle = '#ffd700';
-      ctx.font = 'bold 64px system-ui';
+
+      const winner = this.scores.left >= this.winScore ? 'left' : 'right';
+      ctx.fillStyle = winner === 'left' ? '#3498db' : '#e74c3c';
+      ctx.font = 'bold 72px system-ui';
       ctx.textAlign = 'center';
-      const winner = this.scores.left >= this.winScore ? 'BLUE' : 'RED';
-      ctx.fillText(`${winner} WINS!`, this.width / 2, this.height / 2);
+      const winnerName = winner === 'left' ? 'BLUE' : 'RED';
+      ctx.fillText(`${winnerName} WINS!`, this.width / 2, this.height / 2);
+
+      ctx.fillStyle = 'white';
+      ctx.font = '32px system-ui';
+      ctx.fillText(`${this.scores.left} - ${this.scores.right}`, this.width / 2, this.height / 2 + 50);
     }
   }
 }

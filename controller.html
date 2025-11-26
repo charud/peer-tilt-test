@@ -243,29 +243,73 @@
       color: white;
     }
 
-    /* Serve button */
-    .serve-btn {
-      width: 120px;
-      height: 120px;
+    /* Action button (jump/serve) */
+    .action-btn {
+      width: 140px;
+      height: 140px;
       border-radius: 50%;
       background: linear-gradient(135deg, #ffd700, #ff8c00);
       border: none;
       color: #1a1a2e;
-      font-size: 1.1rem;
+      font-size: 1.3rem;
       font-weight: bold;
       cursor: pointer;
-      box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
+      box-shadow: 0 6px 30px rgba(255, 215, 0, 0.5);
+      margin-bottom: 1.5rem;
+      display: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .action-btn.visible {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .action-btn:active {
+      transform: scale(0.92);
+      box-shadow: 0 2px 15px rgba(255, 215, 0, 0.4);
+    }
+
+    /* Horizontal tilt bar for volleyball */
+    .tilt-bar-container {
+      width: 280px;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 30px;
+      position: relative;
       margin-bottom: 1.5rem;
       display: none;
     }
 
-    .serve-btn.visible {
+    .tilt-bar-container.visible {
       display: block;
     }
 
-    .serve-btn:active {
-      transform: scale(0.95);
-      box-shadow: 0 2px 10px rgba(255, 215, 0, 0.3);
+    .tilt-bar-dot {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      border-radius: 50%;
+      position: absolute;
+      top: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+      transition: left 0.05s ease-out;
+    }
+
+    .tilt-bar-labels {
+      position: absolute;
+      width: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      justify-content: space-between;
+      padding: 0 15px;
+      font-size: 0.8rem;
+      opacity: 0.4;
+      pointer-events: none;
     }
   </style>
 </head>
@@ -292,11 +336,18 @@
     <div class="game-header">
       <div class="game-name" id="current-game-name">Bumper Cars</div>
     </div>
-    <button id="serve-btn" class="serve-btn">SERVE!</button>
-    <div class="tilt-indicator">
+    <button id="action-btn" class="action-btn">JUMP</button>
+    <div class="tilt-indicator" id="tilt-indicator">
       <div class="tilt-crosshair horizontal"></div>
       <div class="tilt-crosshair vertical"></div>
       <div class="tilt-dot" id="tilt-dot"></div>
+    </div>
+    <div class="tilt-bar-container" id="tilt-bar">
+      <div class="tilt-bar-dot" id="tilt-bar-dot"></div>
+      <div class="tilt-bar-labels">
+        <span>LEFT</span>
+        <span>RIGHT</span>
+      </div>
     </div>
     <p class="instruction" id="instruction-main">Tilt to drive!</p>
     <p class="instruction-sub" id="instruction-sub">Push others off the arena</p>
@@ -458,29 +509,39 @@
       }
     });
 
-    // Serve button
-    document.getElementById('serve-btn').addEventListener('click', () => {
+    // Action button (jump for volleyball, could be other actions for other games)
+    document.getElementById('action-btn').addEventListener('click', () => {
       if (conn && conn.open) {
+        // Send both serve (for initial serve) and jump (for gameplay)
         conn.send({ type: 'serve' });
       }
     });
 
     // Update controller UI based on game
     function updateControllerUI(game) {
-      const serveBtn = document.getElementById('serve-btn');
+      const actionBtn = document.getElementById('action-btn');
+      const tiltIndicator = document.getElementById('tilt-indicator');
+      const tiltBar = document.getElementById('tilt-bar');
       const instructionMain = document.getElementById('instruction-main');
       const instructionSub = document.getElementById('instruction-sub');
 
       if (game.id === 'beach-volleyball') {
-        serveBtn.classList.add('visible');
-        instructionMain.textContent = 'Tilt to move!';
-        instructionSub.textContent = 'Block the ball with your body';
+        actionBtn.classList.add('visible');
+        actionBtn.textContent = 'JUMP';
+        tiltIndicator.style.display = 'none';
+        tiltBar.classList.add('visible');
+        instructionMain.textContent = 'Tilt left/right to move';
+        instructionSub.textContent = 'Jump to hit the ball!';
       } else if (game.id === 'bumper-cars') {
-        serveBtn.classList.remove('visible');
+        actionBtn.classList.remove('visible');
+        tiltIndicator.style.display = 'block';
+        tiltBar.classList.remove('visible');
         instructionMain.textContent = 'Tilt to drive!';
         instructionSub.textContent = 'Push others off the arena';
       } else {
-        serveBtn.classList.remove('visible');
+        actionBtn.classList.remove('visible');
+        tiltIndicator.style.display = 'block';
+        tiltBar.classList.remove('visible');
         instructionMain.textContent = 'Tilt to move!';
         instructionSub.textContent = '';
       }
@@ -491,6 +552,7 @@
       let lastSend = 0;
       const throttleMs = 50;
       const tiltDot = document.getElementById('tilt-dot');
+      const tiltBarDot = document.getElementById('tilt-bar-dot');
 
       window.addEventListener('deviceorientation', (e) => {
         const now = Date.now();
@@ -503,10 +565,14 @@
         const normalizedBeta = Math.max(-30, Math.min(30, beta - 30)) / 30;
         const normalizedGamma = Math.max(-30, Math.min(30, gamma)) / 30;
 
-        // Update visual indicator
+        // Update circular indicator (for bumper cars)
         const offsetX = normalizedGamma * 70;
         const offsetY = normalizedBeta * 70;
         tiltDot.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+
+        // Update horizontal bar indicator (for volleyball)
+        const barOffset = normalizedGamma * 115; // 280px width - 50px dot = 230px range, so ±115px
+        tiltBarDot.style.left = `calc(50% + ${barOffset}px)`;
 
         if (conn && conn.open) {
           conn.send({

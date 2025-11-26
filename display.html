@@ -18,60 +18,159 @@
     #game-canvas {
       display: block;
     }
-    #qr-section {
+
+    /* Lobby screen */
+    #lobby {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
       display: flex;
+      z-index: 10;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    }
+    #lobby.hidden {
+      display: none;
+    }
+
+    .lobby-left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px;
+    }
+
+    .lobby-title {
+      font-size: 3.5rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .lobby-subtitle {
+      font-size: 1.3rem;
+      opacity: 0.6;
+      margin-bottom: 3rem;
+    }
+
+    .games-label {
+      font-size: 1rem;
+      opacity: 0.5;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .game-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .game-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 215, 0, 0.2);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      transition: all 0.2s;
+    }
+
+    .game-card:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 215, 0, 0.4);
+    }
+
+    .game-icon {
+      font-size: 3rem;
+      width: 80px;
+      height: 80px;
+      background: rgba(255, 215, 0, 0.1);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .game-info h3 {
+      font-size: 1.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .game-info p {
+      opacity: 0.6;
+      font-size: 1rem;
+    }
+
+    .lobby-right {
+      width: 400px;
+      background: rgba(0, 0, 0, 0.2);
+      display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      padding: 40px;
       text-align: center;
-      z-index: 10;
-      background: #1a1a2e;
-      transition: all 0.3s ease;
     }
-    #qr-section.minimized {
-      top: auto;
-      left: auto;
-      bottom: 20px;
-      right: 20px;
-      width: auto;
-      height: auto;
-      background: transparent;
+
+    .qr-label {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 1.5rem;
     }
-    #qr-section.minimized h1,
-    #qr-section.minimized #url,
-    #qr-section.minimized #status {
-      display: none;
-    }
-    #qr-section.minimized #qr-code {
-      padding: 10px;
-    }
-    #qr-section h1 {
-      margin-bottom: 1rem;
-      font-size: 2.5rem;
-    }
-    #status {
-      font-size: 1rem;
-      opacity: 0.7;
-      margin-bottom: 1rem;
-    }
+
     #qr-code {
       background: white;
       padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 1rem;
+      border-radius: 16px;
+      margin-bottom: 1.5rem;
       display: inline-block;
     }
-    #url {
-      font-size: 0.9rem;
+
+    .qr-instruction {
+      font-size: 1rem;
       opacity: 0.6;
-      word-break: break-all;
-      max-width: 400px;
+      line-height: 1.6;
     }
+
+    .player-count-lobby {
+      margin-top: 2rem;
+      padding: 1rem 2rem;
+      background: rgba(255, 215, 0, 0.1);
+      border-radius: 30px;
+      font-size: 1.2rem;
+    }
+
+    .player-count-lobby .count {
+      color: #ffd700;
+      font-weight: bold;
+    }
+
+    /* In-game UI */
+    #game-ui {
+      display: none;
+    }
+    #game-ui.active {
+      display: block;
+    }
+
+    #qr-mini {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: white;
+      padding: 10px;
+      border-radius: 12px;
+      z-index: 5;
+    }
+
     #player-count {
       position: fixed;
       top: 20px;
@@ -82,35 +181,69 @@
   </style>
 </head>
 <body>
-  <div id="qr-section">
-    <h1>Scan to Play!</h1>
-    <p id="status">Initializing...</p>
-    <div id="qr-code"></div>
-    <p id="url"></p>
+  <!-- Lobby / Game Selection -->
+  <div id="lobby">
+    <div class="lobby-left">
+      <h1 class="lobby-title">Tilt Party</h1>
+      <p class="lobby-subtitle">Multiplayer games with your phone as controller</p>
+
+      <p class="games-label">Available Games</p>
+      <div class="game-list" id="game-list">
+        <!-- Games populated by JS -->
+      </div>
+    </div>
+
+    <div class="lobby-right">
+      <p class="qr-label">Scan to Join</p>
+      <div id="qr-code"></div>
+      <p class="qr-instruction">
+        Connect with your phone<br>
+        to select a game and play!
+      </p>
+      <div class="player-count-lobby" id="player-count-lobby">
+        <span class="count">0</span> players connected
+      </div>
+    </div>
   </div>
 
+  <!-- Game canvas and UI -->
   <canvas id="game-canvas"></canvas>
-  <div id="player-count"></div>
+  <div id="game-ui">
+    <div id="qr-mini"></div>
+    <div id="player-count"></div>
+  </div>
 
+  <script src="js/games.js"></script>
   <script src="js/connection.js"></script>
   <script src="js/game-engine.js"></script>
   <script src="games/bumper-cars.js"></script>
   <script>
     let connection;
-    let game;
+    let game = null;
+    let currentGameId = null;
 
     async function init() {
-      const canvas = document.getElementById('game-canvas');
+      // Populate game list
+      const gameListEl = document.getElementById('game-list');
+      GAME_LIST.forEach(g => {
+        const card = document.createElement('div');
+        card.className = 'game-card';
+        card.innerHTML = `
+          <div class="game-icon">${g.icon}</div>
+          <div class="game-info">
+            <h3>${g.name}</h3>
+            <p>${g.description}</p>
+          </div>
+        `;
+        gameListEl.appendChild(card);
+      });
 
       // Initialize connection manager
       connection = new ConnectionManager({
         controllerUrl: 'https://charud.github.io/peer-tilt-test/controller.html',
 
         onReady: (roomCode, url) => {
-          document.getElementById('status').textContent = `Room: ${roomCode}`;
-          document.getElementById('url').textContent = url;
-
-          // Generate QR code
+          // Generate QR code for lobby
           new QRCode(document.getElementById('qr-code'), {
             text: url,
             width: 200,
@@ -119,47 +252,114 @@
             colorLight: '#ffffff',
             correctLevel: QRCode.CorrectLevel.L
           });
+
+          // Generate mini QR for in-game
+          new QRCode(document.getElementById('qr-mini'), {
+            text: url,
+            width: 120,
+            height: 120,
+            colorDark: '#1a1a2e',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.L
+          });
         },
 
         onPlayerJoin: (player) => {
           console.log('Player joined:', player.number);
-          game.onPlayerJoin(player);
-          updateUI();
+          updatePlayerCount();
+
+          // Send current game state to new player
+          connection.sendToPlayer(player.id, {
+            type: 'game-state',
+            gameId: currentGameId,
+            games: GAME_LIST
+          });
+
+          // If in game, add player to game
+          if (game && currentGameId) {
+            game.onPlayerJoin(player);
+          }
         },
 
         onPlayerLeave: (player) => {
           console.log('Player left:', player.number);
-          game.onPlayerLeave(player);
-          updateUI();
+          updatePlayerCount();
+          if (game) {
+            game.onPlayerLeave(player);
+          }
         },
 
         onPlayerInput: (player, data) => {
-          // Input is automatically stored in player.input
+          // Handle game selection from controller
+          if (data.type === 'select-game') {
+            startGame(data.gameId);
+          }
+          // Handle end game request
+          else if (data.type === 'end-game') {
+            endGame();
+          }
         },
 
         onError: (err) => {
-          document.getElementById('status').textContent = 'Error: ' + err.type;
+          console.error('Connection error:', err);
         }
       });
 
       await connection.init();
-
-      // Initialize game
-      game = new BumperCarsGame(canvas, connection);
-      game.start();
     }
 
-    function updateUI() {
+    function updatePlayerCount() {
       const count = connection.playerCount;
+      document.getElementById('player-count-lobby').innerHTML =
+        `<span class="count">${count}</span> player${count !== 1 ? 's' : ''} connected`;
       document.getElementById('player-count').textContent =
         count > 0 ? `Players: ${count}` : '';
+    }
 
-      const qrSection = document.getElementById('qr-section');
-      if (count > 0) {
-        qrSection.classList.add('minimized');
-      } else {
-        qrSection.classList.remove('minimized');
+    function startGame(gameId) {
+      const gameInfo = GAMES[gameId];
+      if (!gameInfo) return;
+
+      currentGameId = gameId;
+
+      // Hide lobby, show game
+      document.getElementById('lobby').classList.add('hidden');
+      document.getElementById('game-ui').classList.add('active');
+
+      // Initialize game
+      const canvas = document.getElementById('game-canvas');
+      game = new BumperCarsGame(canvas, connection);
+
+      // Add existing players to game
+      connection.playerList.forEach(player => {
+        game.onPlayerJoin(player);
+      });
+
+      game.start();
+
+      // Notify all players
+      connection.broadcast({
+        type: 'game-started',
+        gameId: currentGameId
+      });
+    }
+
+    function endGame() {
+      if (game) {
+        game.stop();
+        game = null;
       }
+      currentGameId = null;
+
+      // Show lobby, hide game
+      document.getElementById('lobby').classList.remove('hidden');
+      document.getElementById('game-ui').classList.remove('active');
+
+      // Notify all players
+      connection.broadcast({
+        type: 'game-ended',
+        games: GAME_LIST
+      });
     }
 
     init();

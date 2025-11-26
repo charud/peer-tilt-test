@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Bumper Cars Controller</title>
+  <title>Tilt Party Controller</title>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -24,7 +24,21 @@
       -webkit-user-select: none;
     }
 
-    .game-title {
+    /* Views */
+    .view {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 400px;
+    }
+    .view.active {
+      display: flex;
+    }
+
+    /* Join view */
+    .app-title {
       font-size: 2rem;
       font-weight: bold;
       margin-bottom: 0.5rem;
@@ -34,65 +48,131 @@
       background-clip: text;
     }
 
-    .game-subtitle {
+    .app-subtitle {
       font-size: 1rem;
       opacity: 0.6;
       margin-bottom: 2rem;
     }
 
     #status {
-      font-size: 1.3rem;
-      margin-bottom: 2rem;
-      min-height: 2rem;
+      font-size: 1.2rem;
+      margin-bottom: 1.5rem;
+      min-height: 1.5rem;
     }
 
-    #start-btn {
-      padding: 1.2rem 3rem;
-      font-size: 1.4rem;
+    .btn {
+      padding: 1rem 2.5rem;
+      font-size: 1.2rem;
       background: linear-gradient(135deg, #ffd700, #ff8c00);
       color: #1a1a2e;
       border: none;
       border-radius: 50px;
       cursor: pointer;
       font-weight: bold;
-      box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
+      box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
       transition: transform 0.2s, box-shadow 0.2s;
     }
 
-    #start-btn:hover {
-      transform: scale(1.05);
-      box-shadow: 0 6px 30px rgba(255, 215, 0, 0.5);
-    }
-
-    #start-btn:active {
+    .btn:active {
       transform: scale(0.98);
     }
 
-    #start-btn:disabled {
+    .btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
-      transform: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      box-shadow: none;
+      border: 2px solid rgba(255, 255, 255, 0.2);
     }
 
     .connected { color: #4ade80; }
     .error { color: #f87171; }
 
-    /* Controller view (shown when connected) */
-    #controller-view {
-      display: none;
+    /* Game selection view */
+    .section-title {
+      font-size: 1.2rem;
+      opacity: 0.6;
+      margin-bottom: 1rem;
+    }
+
+    .game-list {
+      width: 100%;
+      display: flex;
       flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+
+    .game-btn {
+      width: 100%;
+      padding: 1.2rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 215, 0, 0.3);
+      border-radius: 16px;
+      color: white;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: all 0.2s;
+    }
+
+    .game-btn:active {
+      background: rgba(255, 215, 0, 0.2);
+      border-color: #ffd700;
+    }
+
+    .game-btn .icon {
+      font-size: 2rem;
+      width: 50px;
+      height: 50px;
+      background: rgba(255, 215, 0, 0.1);
+      border-radius: 10px;
+      display: flex;
       align-items: center;
       justify-content: center;
-      width: 100%;
-      height: 100%;
+    }
+
+    .game-btn .info {
+      text-align: left;
+    }
+
+    .game-btn .name {
+      font-weight: bold;
+      margin-bottom: 0.2rem;
+    }
+
+    .game-btn .desc {
+      font-size: 0.85rem;
+      opacity: 0.6;
+    }
+
+    /* Controller view */
+    #controller-view {
       position: fixed;
       top: 0;
       left: 0;
+      width: 100%;
+      height: 100%;
       padding: 40px 20px;
     }
 
-    #controller-view.active {
-      display: flex;
+    .game-header {
+      margin-bottom: 1rem;
+    }
+
+    .game-name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .tilt-indicator {
@@ -101,7 +181,7 @@
       border: 3px solid rgba(255, 215, 0, 0.3);
       border-radius: 50%;
       position: relative;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
 
     .tilt-dot {
@@ -137,37 +217,56 @@
     }
 
     .instruction {
-      font-size: 1.5rem;
+      font-size: 1.3rem;
       font-weight: bold;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.3rem;
     }
 
     .instruction-sub {
-      font-size: 1rem;
+      font-size: 0.95rem;
       opacity: 0.6;
+      margin-bottom: 2rem;
     }
 
-    .player-color {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      display: inline-block;
-      margin-right: 8px;
-      vertical-align: middle;
+    .end-game-btn {
+      padding: 0.8rem 1.5rem;
+      font-size: 0.9rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 30px;
+      color: rgba(255, 255, 255, 0.6);
+      cursor: pointer;
+    }
+
+    .end-game-btn:active {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
     }
   </style>
 </head>
 <body>
   <!-- Join view -->
-  <div id="join-view">
-    <div class="game-title">Bumper Cars</div>
-    <div class="game-subtitle">Sumo Arena</div>
-    <p id="status">Tap to join the game!</p>
-    <button id="start-btn">Join Game</button>
+  <div id="join-view" class="view active">
+    <div class="app-title">Tilt Party</div>
+    <div class="app-subtitle">Phone Controller</div>
+    <p id="status">Tap to connect</p>
+    <button id="connect-btn" class="btn">Connect</button>
   </div>
 
-  <!-- Controller view -->
-  <div id="controller-view">
+  <!-- Game selection view -->
+  <div id="select-view" class="view">
+    <div class="app-title">Tilt Party</div>
+    <p class="section-title">Select a game to play</p>
+    <div class="game-list" id="game-list">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <!-- Controller view (in-game) -->
+  <div id="controller-view" class="view">
+    <div class="game-header">
+      <div class="game-name" id="current-game-name">Bumper Cars</div>
+    </div>
     <div class="tilt-indicator">
       <div class="tilt-crosshair horizontal"></div>
       <div class="tilt-crosshair vertical"></div>
@@ -175,27 +274,37 @@
     </div>
     <p class="instruction">Tilt to drive!</p>
     <p class="instruction-sub">Push others off the arena</p>
+    <button id="end-game-btn" class="end-game-btn">End Game</button>
   </div>
 
   <script>
     let peer;
     let conn;
     let isConnected = false;
+    let currentGameId = null;
+    let games = [];
 
     const params = new URLSearchParams(window.location.search);
     const roomCode = params.get('room');
 
     if (!roomCode) {
-      document.getElementById('status').textContent = 'No room code found!';
+      document.getElementById('status').textContent = 'Invalid link';
       document.getElementById('status').className = 'error';
-      document.getElementById('start-btn').disabled = true;
+      document.getElementById('connect-btn').disabled = true;
     }
 
-    document.getElementById('start-btn').addEventListener('click', async () => {
+    // View management
+    function showView(viewId) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(viewId).classList.add('active');
+    }
+
+    // Connect button
+    document.getElementById('connect-btn').addEventListener('click', async () => {
       if (isConnected) return;
 
       document.getElementById('status').textContent = 'Connecting...';
-      document.getElementById('start-btn').disabled = true;
+      document.getElementById('connect-btn').disabled = true;
 
       // Request motion permission (required on iOS)
       if (typeof DeviceMotionEvent !== 'undefined' &&
@@ -205,7 +314,7 @@
           if (permission !== 'granted') {
             document.getElementById('status').textContent = 'Motion permission denied';
             document.getElementById('status').className = 'error';
-            document.getElementById('start-btn').disabled = false;
+            document.getElementById('connect-btn').disabled = false;
             return;
           }
         } catch (e) {
@@ -221,23 +330,26 @@
 
         conn.on('open', () => {
           isConnected = true;
-          showController();
           startTiltTracking();
+        });
+
+        conn.on('data', (data) => {
+          handleMessage(data);
         });
 
         conn.on('close', () => {
           isConnected = false;
-          showJoinView();
-          document.getElementById('status').textContent = 'Disconnected - tap to rejoin';
+          showView('join-view');
+          document.getElementById('status').textContent = 'Disconnected';
           document.getElementById('status').className = 'error';
-          document.getElementById('start-btn').disabled = false;
-          document.getElementById('start-btn').textContent = 'Rejoin';
+          document.getElementById('connect-btn').disabled = false;
+          document.getElementById('connect-btn').textContent = 'Reconnect';
         });
 
         conn.on('error', (err) => {
           document.getElementById('status').textContent = 'Connection error';
           document.getElementById('status').className = 'error';
-          document.getElementById('start-btn').disabled = false;
+          document.getElementById('connect-btn').disabled = false;
           console.error(err);
         });
       });
@@ -245,21 +357,81 @@
       peer.on('error', (err) => {
         document.getElementById('status').textContent = 'Error: ' + err.type;
         document.getElementById('status').className = 'error';
-        document.getElementById('start-btn').disabled = false;
+        document.getElementById('connect-btn').disabled = false;
         console.error(err);
       });
     });
 
-    function showController() {
-      document.getElementById('join-view').style.display = 'none';
-      document.getElementById('controller-view').classList.add('active');
+    // Handle messages from display
+    function handleMessage(data) {
+      if (data.type === 'game-state') {
+        games = data.games || [];
+        currentGameId = data.gameId;
+
+        if (currentGameId) {
+          // Game in progress, show controller
+          const game = games.find(g => g.id === currentGameId);
+          if (game) {
+            document.getElementById('current-game-name').textContent = game.name;
+          }
+          showView('controller-view');
+        } else {
+          // In lobby, show game selection
+          populateGameList();
+          showView('select-view');
+        }
+      }
+      else if (data.type === 'game-started') {
+        currentGameId = data.gameId;
+        const game = games.find(g => g.id === currentGameId);
+        if (game) {
+          document.getElementById('current-game-name').textContent = game.name;
+        }
+        showView('controller-view');
+      }
+      else if (data.type === 'game-ended') {
+        currentGameId = null;
+        games = data.games || games;
+        populateGameList();
+        showView('select-view');
+      }
     }
 
-    function showJoinView() {
-      document.getElementById('join-view').style.display = 'block';
-      document.getElementById('controller-view').classList.remove('active');
+    // Populate game selection list
+    function populateGameList() {
+      const listEl = document.getElementById('game-list');
+      listEl.innerHTML = '';
+
+      games.forEach(game => {
+        const btn = document.createElement('button');
+        btn.className = 'game-btn';
+        btn.innerHTML = `
+          <div class="icon">${game.icon}</div>
+          <div class="info">
+            <div class="name">${game.name}</div>
+            <div class="desc">${game.description}</div>
+          </div>
+        `;
+        btn.addEventListener('click', () => selectGame(game.id));
+        listEl.appendChild(btn);
+      });
     }
 
+    // Select a game
+    function selectGame(gameId) {
+      if (conn && conn.open) {
+        conn.send({ type: 'select-game', gameId });
+      }
+    }
+
+    // End game button
+    document.getElementById('end-game-btn').addEventListener('click', () => {
+      if (conn && conn.open) {
+        conn.send({ type: 'end-game' });
+      }
+    });
+
+    // Tilt tracking
     function startTiltTracking() {
       let lastSend = 0;
       const throttleMs = 50;
@@ -273,12 +445,11 @@
         const beta = e.beta || 0;
         const gamma = e.gamma || 0;
 
-        // Normalize - assume phone held upright, zero at slight angle
         const normalizedBeta = Math.max(-30, Math.min(30, beta - 30)) / 30;
         const normalizedGamma = Math.max(-30, Math.min(30, gamma)) / 30;
 
         // Update visual indicator
-        const offsetX = normalizedGamma * 70; // Max 70px from center
+        const offsetX = normalizedGamma * 70;
         const offsetY = normalizedBeta * 70;
         tiltDot.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
 

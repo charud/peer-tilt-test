@@ -102,27 +102,9 @@ class BeachVolleyballGame extends GameEngine {
     p.jumpRequested = true;
   }
 
-  // Serve is now triggered by jump button for serving team
+  // Keep serve() for backwards compatibility - just triggers jump
   serve(playerId) {
-    if (!this.waitingForServe) {
-      // If not waiting for serve, treat as jump
-      this.jump(playerId);
-      return;
-    }
-
-    const p = this.players[playerId];
-    if (!p) return;
-
-    // Only serving team can serve
-    if (p.team !== this.servingTeam) return;
-
-    console.log('Player', p.player.number, 'served!');
-
-    // Launch ball upward and toward opponent
-    const direction = this.servingTeam === 'left' ? 1 : -1;
-    this.ball.vx = direction * 200;
-    this.ball.vy = -400;
-    this.waitingForServe = false;
+    this.jump(playerId);
   }
 
   update(dt) {
@@ -175,7 +157,61 @@ class BeachVolleyballGame extends GameEngine {
       }
     });
 
-    // Update ball
+    // Check if only one player (practice mode)
+    const playerCount = Object.keys(this.players).length;
+    const isSinglePlayer = playerCount === 1;
+
+    // Ball collision with players (slime style - semicircle collision)
+    // This happens even when waiting for serve - hitting the ball starts the rally
+    Object.values(this.players).forEach(p => {
+      // Check collision with top half of player (semicircle)
+      const dx = this.ball.x - p.x;
+      const dy = this.ball.y - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const minDist = this.ballRadius + this.playerRadius;
+
+      // Only collide if ball is above player's base and within radius
+      if (dist < minDist && dist > 0 && this.ball.y < p.y + 10) {
+        // If waiting for serve, only serving team (or single player) can hit
+        if (this.waitingForServe) {
+          if (!isSinglePlayer && p.team !== this.servingTeam) return;
+          this.waitingForServe = false;
+          console.log('Player', p.player.number, 'served by hitting the ball!');
+        }
+
+        // Normal vector from player center to ball
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        // Push ball out
+        this.ball.x = p.x + nx * minDist;
+        this.ball.y = p.y + ny * minDist;
+
+        // Reflect velocity off the slime surface
+        const dot = this.ball.vx * nx + this.ball.vy * ny;
+
+        // Add player's velocity influence
+        const hitPower = 600;
+        this.ball.vx = this.ball.vx - 2 * dot * nx + p.vx * 0.3;
+        this.ball.vy = this.ball.vy - 2 * dot * ny + hitPower * ny;
+
+        // Ensure ball goes upward if hit from above
+        if (this.ball.vy > -100) {
+          this.ball.vy = -300;
+        }
+
+        // Clamp speed
+        const speed = Math.sqrt(this.ball.vx * this.ball.vx + this.ball.vy * this.ball.vy);
+        if (speed > this.ballMaxSpeed) {
+          this.ball.vx = (this.ball.vx / speed) * this.ballMaxSpeed;
+          this.ball.vy = (this.ball.vy / speed) * this.ballMaxSpeed;
+        }
+
+        this.ball.lastHitBy = p.team;
+      }
+    });
+
+    // Update ball physics
     if (!this.waitingForServe) {
       // Apply gravity
       this.ball.vy += this.ballGravity * dt;
@@ -183,48 +219,6 @@ class BeachVolleyballGame extends GameEngine {
       // Update position
       this.ball.x += this.ball.vx * dt;
       this.ball.y += this.ball.vy * dt;
-
-      // Ball collision with players (slime style - semicircle collision)
-      Object.values(this.players).forEach(p => {
-        // Check collision with top half of player (semicircle)
-        const dx = this.ball.x - p.x;
-        const dy = this.ball.y - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const minDist = this.ballRadius + this.playerRadius;
-
-        // Only collide if ball is above player's base and within radius
-        if (dist < minDist && dist > 0 && this.ball.y < p.y + 10) {
-          // Normal vector from player center to ball
-          const nx = dx / dist;
-          const ny = dy / dist;
-
-          // Push ball out
-          this.ball.x = p.x + nx * minDist;
-          this.ball.y = p.y + ny * minDist;
-
-          // Reflect velocity off the slime surface
-          const dot = this.ball.vx * nx + this.ball.vy * ny;
-
-          // Add player's velocity influence
-          const hitPower = 600;
-          this.ball.vx = this.ball.vx - 2 * dot * nx + p.vx * 0.3;
-          this.ball.vy = this.ball.vy - 2 * dot * ny + hitPower * ny;
-
-          // Ensure ball goes upward if hit from above
-          if (this.ball.vy > -100) {
-            this.ball.vy = -300;
-          }
-
-          // Clamp speed
-          const speed = Math.sqrt(this.ball.vx * this.ball.vx + this.ball.vy * this.ball.vy);
-          if (speed > this.ballMaxSpeed) {
-            this.ball.vx = (this.ball.vx / speed) * this.ballMaxSpeed;
-            this.ball.vy = (this.ball.vy / speed) * this.ballMaxSpeed;
-          }
-
-          this.ball.lastHitBy = p.team;
-        }
-      });
 
       // Ball collision with net
       const netTop = this.groundY - this.netHeight;
@@ -253,11 +247,16 @@ class BeachVolleyballGame extends GameEngine {
         this.ball.vx *= -this.ballBounce;
       }
 
-      // Ball hit ground - point scored
+      // Ball hit ground - point scored (or reset in single player)
       if (this.ball.y + this.ballRadius > this.groundY) {
-        const ballSide = this.ball.x < this.netX ? 'left' : 'right';
-        const scoringTeam = ballSide === 'left' ? 'right' : 'left';
-        this.scorePoint(scoringTeam);
+        if (isSinglePlayer) {
+          // In practice mode, just reset the ball
+          this.resetBall();
+        } else {
+          const ballSide = this.ball.x < this.netX ? 'left' : 'right';
+          const scoringTeam = ballSide === 'left' ? 'right' : 'left';
+          this.scorePoint(scoringTeam);
+        }
       }
     } else {
       // Ball floats waiting for serve
@@ -432,17 +431,21 @@ class BeachVolleyballGame extends GameEngine {
     ctx.fillText(this.scores.right, this.width / 2 + 20, 52);
 
     // Serve indicator
+    const playerCount = Object.keys(this.players).length;
     if (this.waitingForServe && !this.rallyOver) {
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(this.width / 2 - 140, this.height / 2 - 40, 280, 80);
-      ctx.fillStyle = this.servingTeam === 'left' ? '#3498db' : '#e74c3c';
-      ctx.font = 'bold 24px system-ui';
+      ctx.fillRect(this.width / 2 - 140, this.height / 2 - 30, 280, 60);
+      ctx.font = 'bold 22px system-ui';
       ctx.textAlign = 'center';
-      const teamName = this.servingTeam === 'left' ? 'BLUE' : 'RED';
-      ctx.fillText(`${teamName} SERVE!`, this.width / 2, this.height / 2 - 5);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.font = '16px system-ui';
-      ctx.fillText('Tap JUMP to serve', this.width / 2, this.height / 2 + 22);
+
+      if (playerCount === 1) {
+        ctx.fillStyle = '#ffd700';
+        ctx.fillText('Jump to serve!', this.width / 2, this.height / 2 + 8);
+      } else {
+        ctx.fillStyle = this.servingTeam === 'left' ? '#3498db' : '#e74c3c';
+        const teamName = this.servingTeam === 'left' ? 'BLUE' : 'RED';
+        ctx.fillText(`${teamName} - Jump to serve!`, this.width / 2, this.height / 2 + 8);
+      }
     }
 
     // Win message

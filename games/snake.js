@@ -69,9 +69,11 @@ class SnakeGame extends GameEngine {
   }
 
   onPlayerJoin(player) {
-    // Spawn snake at random position
-    const startX = Math.floor(Math.random() * (this.gridWidth - 10)) + 5;
-    const startY = Math.floor(Math.random() * (this.gridHeight - 10)) + 5;
+    // Spawn snake at random position (safely within bounds)
+    const safeWidth = Math.max(10, this.gridWidth);
+    const safeHeight = Math.max(10, this.gridHeight);
+    const startX = Math.floor(Math.random() * (safeWidth - 10)) + 5;
+    const startY = Math.floor(Math.random() * (safeHeight - 10)) + 5;
 
     // Random starting direction
     const directions = ['up', 'down', 'left', 'right'];
@@ -129,6 +131,9 @@ class SnakeGame extends GameEngine {
 
   update(deltaTime) {
     if (this.gameOver) return;
+
+    // Don't run game logic until we have players
+    if (Object.keys(this.snakes).length === 0) return;
 
     this.lastMoveTime += deltaTime * 1000;
 

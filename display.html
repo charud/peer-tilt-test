@@ -224,6 +224,7 @@
   <script src="js/game-engine.js"></script>
   <script src="games/bumper-cars.js"></script>
   <script src="games/beach-volleyball.js"></script>
+  <script src="games/snake.js"></script>
   <script>
     let connection;
     let game = null;
@@ -372,6 +373,8 @@
         game = new BumperCarsGame(canvas, connection);
       } else if (gameId === 'beach-volleyball') {
         game = new BeachVolleyballGame(canvas, connection);
+      } else if (gameId === 'snake') {
+        game = new SnakeGame(canvas, connection);
       }
 
       // Add existing players to game

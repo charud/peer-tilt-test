@@ -20,6 +20,16 @@ const GAMES = {
     minPlayers: 2,
     maxPlayers: 8,
     controllerType: 'tilt-serve'
+  },
+  'snake': {
+    id: 'snake',
+    name: 'Snake',
+    subtitle: 'Multiplayer',
+    description: 'Eat food, grow long, survive!',
+    icon: '🐍',
+    minPlayers: 1,
+    maxPlayers: 8,
+    controllerType: 'tilt'
   }
 };
 

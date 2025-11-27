@@ -216,6 +216,9 @@ class SnakeGame extends GameEngine {
     const aliveSnakes = Object.values(this.snakes).filter(s => !s.dead);
     const totalSnakes = Object.keys(this.snakes).length;
 
+    // Don't check for winner if no players yet
+    if (totalSnakes === 0) return;
+
     if (totalSnakes > 1 && aliveSnakes.length <= 1) {
       this.gameOver = true;
       if (aliveSnakes.length === 1) {

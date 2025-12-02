@@ -262,10 +262,16 @@
         `;
         // Click to start game with debug player
         card.addEventListener('click', () => {
+          console.log('Debug: clicking game', g.id);
           createDebugPlayer();
+          console.log('Debug: created player', debugPlayer);
           startGame(g.id);
+          console.log('Debug: game started, game object:', game);
           if (game) {
             game.onPlayerJoin(debugPlayer);
+            console.log('Debug: player joined');
+          } else {
+            console.log('Debug: game is null!');
           }
         });
         gameListEl.appendChild(card);
@@ -409,6 +415,12 @@
           else if (data.type === 'reset-players') {
             console.log('Player', player.number, 'requested reset players');
             resetAllPlayers();
+          }
+          // Handle tilt input - pass to game
+          else if (data.type === 'tilt') {
+            if (game && typeof game.onPlayerInput === 'function') {
+              game.onPlayerInput(player, player.input);
+            }
           }
         },
 

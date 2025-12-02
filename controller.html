@@ -795,8 +795,19 @@
       const throttleMs = 50;
       const tiltDot = document.getElementById('tilt-dot');
       const tiltBarDot = document.getElementById('tilt-bar-dot');
+      let tiltReceived = false;
+
+      // Check if tilt data is received after 2 seconds
+      setTimeout(() => {
+        if (!tiltReceived && hasJoined) {
+          showTiltWarning();
+        }
+      }, 2000);
 
       window.addEventListener('deviceorientation', (e) => {
+        tiltReceived = true;
+        hideTiltWarning();
+
         const now = Date.now();
         if (now - lastSend < throttleMs) return;
         lastSend = now;
@@ -824,6 +835,41 @@
           });
         }
       });
+    }
+
+    // Tilt warning
+    function showTiltWarning() {
+      let warning = document.getElementById('tilt-warning');
+      if (!warning) {
+        warning = document.createElement('div');
+        warning.id = 'tilt-warning';
+        warning.style.cssText = `
+          position: fixed;
+          bottom: 20px;
+          left: 20px;
+          right: 20px;
+          background: rgba(255, 100, 100, 0.9);
+          color: white;
+          padding: 15px;
+          border-radius: 12px;
+          text-align: center;
+          font-size: 14px;
+          z-index: 1000;
+        `;
+        warning.innerHTML = `
+          <strong>Tilt controls not working?</strong><br>
+          Refresh the page and allow motion access when prompted.
+        `;
+        document.body.appendChild(warning);
+      }
+      warning.style.display = 'block';
+    }
+
+    function hideTiltWarning() {
+      const warning = document.getElementById('tilt-warning');
+      if (warning) {
+        warning.style.display = 'none';
+      }
     }
 
     // Prevent scrolling/zooming

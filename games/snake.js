@@ -2,14 +2,19 @@
 // Each player controls their own snake. Eat food to grow, don't hit walls or other snakes!
 
 class SnakeGame extends GameEngine {
+  gridSize = 20; // Class field - initialized before constructor runs
+
   constructor(canvas, connectionManager) {
     super(canvas, connectionManager);
 
     this.snakes = {}; // player id -> snake object
     this.food = [];
-    this.gridSize = 20;
-    this.gameSpeed = 100; // ms between moves
+    this.baseGameSpeed = 100; // ms between moves at full speed
+    this.slowGameSpeed = 250; // ms between moves when learning
+    this.gameSpeed = this.slowGameSpeed; // Start slow
     this.lastMoveTime = 0;
+    this.gameStartTime = null; // Set when first player starts moving
+    this.learningPeriod = 10000; // 10 seconds of slow speed
 
     // Game area (set in resize)
     this.gridWidth = 0;
@@ -28,6 +33,9 @@ class SnakeGame extends GameEngine {
 
   resize() {
     super.resize();
+
+    // Skip if gridSize not ready yet (parent constructor calling resize)
+    if (!this.gridSize) return;
 
     // Calculate grid dimensions
     this.gridWidth = Math.floor(this.width / this.gridSize);
@@ -95,7 +103,8 @@ class SnakeGame extends GameEngine {
       direction: dir,
       nextDirection: dir,
       dead: false,
-      score: 0
+      score: 0,
+      waiting: true // Wait for first input before moving
     };
 
     console.log('Snake joined:', player.name || player.number);
@@ -113,22 +122,35 @@ class SnakeGame extends GameEngine {
     const gamma = input.x; // left/right tilt (-1 to 1)
     const beta = input.y;  // forward/back tilt (-1 to 1)
 
-    const threshold = 0.3;
+    const threshold = 0.15; // Lower threshold for more responsive controls
+
+    let newDirection = null;
 
     // Determine strongest direction from tilt
-    if (Math.abs(gamma) > Math.abs(beta)) {
-      // Horizontal movement
-      if (gamma < -threshold && snake.direction !== 'right') {
-        snake.nextDirection = 'left';
-      } else if (gamma > threshold && snake.direction !== 'left') {
-        snake.nextDirection = 'right';
+    if (Math.abs(gamma) > Math.abs(beta) && Math.abs(gamma) > threshold) {
+      // Horizontal movement is stronger
+      if (gamma < 0 && snake.direction !== 'right') {
+        newDirection = 'left';
+      } else if (gamma > 0 && snake.direction !== 'left') {
+        newDirection = 'right';
       }
-    } else {
-      // Vertical movement
-      if (beta < -threshold && snake.direction !== 'down') {
-        snake.nextDirection = 'up';
-      } else if (beta > threshold && snake.direction !== 'up') {
-        snake.nextDirection = 'down';
+    } else if (Math.abs(beta) > threshold) {
+      // Vertical movement is stronger
+      if (beta < 0 && snake.direction !== 'down') {
+        newDirection = 'up';
+      } else if (beta > 0 && snake.direction !== 'up') {
+        newDirection = 'down';
+      }
+    }
+
+    if (newDirection) {
+      snake.nextDirection = newDirection;
+      if (snake.waiting) {
+        snake.waiting = false;
+        // Start game timer when first player moves
+        if (!this.gameStartTime) {
+          this.gameStartTime = performance.now();
+        }
       }
     }
   }
@@ -138,6 +160,18 @@ class SnakeGame extends GameEngine {
 
     // Don't run game logic until we have players
     if (Object.keys(this.snakes).length === 0) return;
+
+    // Gradually speed up after learning period
+    if (this.gameStartTime) {
+      const elapsed = performance.now() - this.gameStartTime;
+      if (elapsed < this.learningPeriod) {
+        // Lerp from slow to fast over the learning period
+        const t = elapsed / this.learningPeriod;
+        this.gameSpeed = this.slowGameSpeed - (this.slowGameSpeed - this.baseGameSpeed) * t;
+      } else {
+        this.gameSpeed = this.baseGameSpeed;
+      }
+    }
 
     this.lastMoveTime += deltaTime * 1000;
 
@@ -151,7 +185,7 @@ class SnakeGame extends GameEngine {
 
   moveSnakes() {
     Object.values(this.snakes).forEach(snake => {
-      if (snake.dead) return;
+      if (snake.dead || snake.waiting) return; // Don't move if waiting for input
 
       // Apply next direction
       snake.direction = snake.nextDirection;
@@ -168,6 +202,8 @@ class SnakeGame extends GameEngine {
         case 'left': newX--; break;
         case 'right': newX++; break;
       }
+
+      console.log('Snake move:', { from: head, to: { x: newX, y: newY }, direction: snake.direction, body: JSON.stringify(snake.body) });
 
       // Add new head
       snake.body.unshift({ x: newX, y: newY });
@@ -206,6 +242,7 @@ class SnakeGame extends GameEngine {
       // Self collision (skip head)
       for (let i = 1; i < snake.body.length; i++) {
         if (snake.body[i].x === head.x && snake.body[i].y === head.y) {
+          console.log('Self collision!', { head, segment: snake.body[i], index: i, body: JSON.stringify(snake.body) });
           snake.dead = true;
           return;
         }

@@ -7,10 +7,11 @@ class BumperCarsGame extends GameEngine {
     this.cars = {}; // player id -> car object
     this.arenaRadius = 0;
     this.carRadius = 40;
-    this.maxSpeed = 500;
-    this.acceleration = 1000;
-    this.friction = 0.97;
-    this.collisionForce = 1500; // Force applied on collision based on speed
+    this.maxSpeed = 700;
+    this.acceleration = 1200;
+    this.friction = 0.98;
+    this.collisionForce = 2000; // Force applied on collision based on speed
+    this.bounciness = 1.2; // Extra bounce multiplier on collisions
 
     // Lives system
     this.maxLives = 3;
@@ -156,6 +157,13 @@ class BumperCarsGame extends GameEngine {
         car.lives--;
         console.log('Player', car.player.number, 'fell off! Lives:', car.lives);
 
+        // Credit knockout to whoever last hit this player
+        if (car.lastHitBy && this.cars[car.lastHitBy]) {
+          this.cars[car.lastHitBy].knockouts++;
+          console.log('Knockout credited to', this.cars[car.lastHitBy].player.name);
+        }
+        car.lastHitBy = null; // Reset after crediting
+
         if (car.lives <= 0) {
           car.eliminated = true;
           car.falling = true;
@@ -202,13 +210,13 @@ class BumperCarsGame extends GameEngine {
           const dvy = a.vy - b.vy;
           const relativeSpeed = Math.sqrt(dvx * dvx + dvy * dvy);
 
-          // Exchange momentum (elastic collision)
+          // Exchange momentum (elastic collision) with bounciness multiplier
           const dot = dvx * nx + dvy * ny;
 
-          a.vx -= dot * nx;
-          a.vy -= dot * ny;
-          b.vx += dot * nx;
-          b.vy += dot * ny;
+          a.vx -= dot * nx * this.bounciness;
+          a.vy -= dot * ny * this.bounciness;
+          b.vx += dot * nx * this.bounciness;
+          b.vy += dot * ny * this.bounciness;
 
           // Add extra force based on collision speed - this is the "push"!
           const pushForce = this.collisionForce * (1 + relativeSpeed / 100);
@@ -218,7 +226,7 @@ class BumperCarsGame extends GameEngine {
           b.vy += ny * pushForce * dt;
 
           // Bonus: instant velocity boost for extra bounce feel
-          const bounceBoost = 150;
+          const bounceBoost = 200;
           a.vx -= nx * bounceBoost;
           a.vy -= ny * bounceBoost;
           b.vx += nx * bounceBoost;
@@ -396,6 +404,37 @@ class BumperCarsGame extends GameEngine {
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.fillText('Tilt to drive • Bump others off the arena!', this.width / 2, this.height - 20);
+
+    // Check for winner (only one player left with lives in multiplayer)
+    const aliveCars = Object.values(this.cars).filter(c => !c.eliminated);
+    const totalCars = Object.keys(this.cars).length;
+
+    if (totalCars > 1 && aliveCars.length === 1) {
+      const winner = aliveCars[0];
+      const winnerName = winner.player.name || `Player ${winner.player.number}`;
+
+      // Darken background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.fillRect(0, 0, this.width, this.height);
+
+      // Trophy
+      ctx.font = '60px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🏆', this.width / 2, this.height / 2 - 80);
+
+      // Winner text with glow
+      ctx.shadowColor = winner.player.color;
+      ctx.shadowBlur = 30;
+      ctx.fillStyle = winner.player.color;
+      ctx.font = 'bold 64px system-ui';
+      ctx.fillText(`${winnerName} WINS!`, this.width / 2, this.height / 2);
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold 28px system-ui';
+      ctx.fillText(`Knockouts: ${winner.knockouts}`, this.width / 2, this.height / 2 + 50);
+    }
   }
 }
 

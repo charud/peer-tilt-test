@@ -44,8 +44,6 @@ class SnakeGame extends GameEngine {
     // Center the grid
     this.offsetX = (this.width - this.gridWidth * this.gridSize) / 2;
     this.offsetY = (this.height - this.gridHeight * this.gridSize) / 2;
-
-    console.log('Snake resize:', { width: this.width, height: this.height, gridWidth: this.gridWidth, gridHeight: this.gridHeight });
   }
 
   spawnFood() {
@@ -85,7 +83,6 @@ class SnakeGame extends GameEngine {
     const startX = Math.floor(Math.random() * (safeWidth - 10)) + 5;
     const startY = Math.floor(Math.random() * (safeHeight - 10)) + 5;
 
-    console.log('Snake spawn:', { gridWidth: this.gridWidth, gridHeight: this.gridHeight, startX, startY });
 
     // Random starting direction
     const directions = ['up', 'down', 'left', 'right'];
@@ -107,7 +104,6 @@ class SnakeGame extends GameEngine {
       waiting: true // Wait for first input before moving
     };
 
-    console.log('Snake joined:', player.name || player.number);
   }
 
   onPlayerLeave(player) {
@@ -203,8 +199,6 @@ class SnakeGame extends GameEngine {
         case 'right': newX++; break;
       }
 
-      console.log('Snake move:', { from: head, to: { x: newX, y: newY }, direction: snake.direction, body: JSON.stringify(snake.body) });
-
       // Add new head
       snake.body.unshift({ x: newX, y: newY });
 
@@ -234,7 +228,6 @@ class SnakeGame extends GameEngine {
       // Wall collision
       if (head.x < 0 || head.x >= this.gridWidth ||
           head.y < 0 || head.y >= this.gridHeight) {
-        console.log('Wall collision!', { head, gridWidth: this.gridWidth, gridHeight: this.gridHeight });
         snake.dead = true;
         return;
       }
@@ -242,7 +235,6 @@ class SnakeGame extends GameEngine {
       // Self collision (skip head)
       for (let i = 1; i < snake.body.length; i++) {
         if (snake.body[i].x === head.x && snake.body[i].y === head.y) {
-          console.log('Self collision!', { head, segment: snake.body[i], index: i, body: JSON.stringify(snake.body) });
           snake.dead = true;
           return;
         }
@@ -270,13 +262,11 @@ class SnakeGame extends GameEngine {
     if (totalSnakes === 0) return;
 
     if (totalSnakes > 1 && aliveSnakes.length <= 1) {
-      console.log('Game over: multiplayer, one or zero alive');
       this.gameOver = true;
       if (aliveSnakes.length === 1) {
         this.winner = aliveSnakes[0];
       }
     } else if (totalSnakes === 1 && aliveSnakes.length === 0) {
-      console.log('Game over: single player died');
       this.gameOver = true;
     }
   }

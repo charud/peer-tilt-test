@@ -542,7 +542,7 @@ class BeachVolleyballGame extends GameEngine {
         ctx.shadowColor = isLeft ? '#3498db' : '#e74c3c';
         ctx.shadowBlur = 10;
         ctx.fillStyle = isLeft ? '#5dade2' : '#ec7063';
-        const teamName = isLeft ? 'BLUE' : 'RED';
+        const teamName = isLeft ? 'LEFT' : 'RIGHT';
         ctx.fillText(`${teamName} — Jump to serve!`, this.width / 2, this.height / 2);
       }
       ctx.shadowBlur = 0;
@@ -555,7 +555,7 @@ class BeachVolleyballGame extends GameEngine {
 
       const winner = this.scores.left >= this.winScore ? 'left' : 'right';
       const isLeft = winner === 'left';
-      const winnerName = isLeft ? 'BLUE' : 'RED';
+      const winnerName = isLeft ? 'LEFT' : 'RIGHT';
 
       // Glowing winner text
       ctx.shadowColor = isLeft ? '#3498db' : '#e74c3c';

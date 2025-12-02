@@ -258,9 +258,9 @@ class SnakeGame extends GameEngine {
         }
       }
 
-      // Other snake collision
+      // Other snake collision (skip waiting snakes - they're invulnerable until they move)
       Object.values(this.snakes).forEach(other => {
-        if (other === snake || other.dead) return;
+        if (other === snake || other.dead || other.waiting) return;
 
         for (const segment of other.body) {
           if (segment.x === head.x && segment.y === head.y) {
@@ -273,11 +273,16 @@ class SnakeGame extends GameEngine {
   }
 
   checkWinner() {
-    const aliveSnakes = Object.values(this.snakes).filter(s => !s.dead);
-    const totalSnakes = Object.keys(this.snakes).length;
+    const allSnakes = Object.values(this.snakes);
+    const aliveSnakes = allSnakes.filter(s => !s.dead);
+    const waitingSnakes = allSnakes.filter(s => s.waiting);
+    const totalSnakes = allSnakes.length;
 
     // Don't check for winner if no players yet
     if (totalSnakes === 0) return;
+
+    // Don't end game while any snake is still waiting to start
+    if (waitingSnakes.length > 0) return;
 
     if (totalSnakes > 1 && aliveSnakes.length <= 1) {
       this.gameOver = true;

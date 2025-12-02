@@ -24,6 +24,8 @@ class SnakeGame extends GameEngine {
 
     this.gameOver = false;
     this.winner = null;
+    this.gameOverTime = null; // When game over was triggered
+    this.gameOverDelay = 1000; // 1 second delay before showing game over
 
     // Explosion particles
     this.explosions = [];
@@ -323,6 +325,14 @@ class SnakeGame extends GameEngine {
         this.food.splice(foodIndex, 1);
         snake.score++;
         this.spawnFood();
+
+        // After 5 apples, each apple grows by 3 cells instead of 1
+        // Add 2 extra segments (1 is already added by not removing tail)
+        if (snake.score > 5) {
+          const tail = snake.body[snake.body.length - 1];
+          snake.body.push({ x: tail.x, y: tail.y });
+          snake.body.push({ x: tail.x, y: tail.y });
+        }
       } else {
         // Remove tail
         snake.body.pop();
@@ -373,6 +383,17 @@ class SnakeGame extends GameEngine {
   }
 
   checkWinner() {
+    // Already in game over state
+    if (this.gameOver) return;
+
+    // Check if delay is pending
+    if (this.gameOverTime !== null) {
+      if (performance.now() - this.gameOverTime >= this.gameOverDelay) {
+        this.gameOver = true;
+      }
+      return;
+    }
+
     const allSnakes = Object.values(this.snakes);
     const aliveSnakes = allSnakes.filter(s => !s.dead);
     const learningSnakes = allSnakes.filter(s => this.isInLearningPeriod(s));
@@ -385,12 +406,14 @@ class SnakeGame extends GameEngine {
     if (learningSnakes.length > 0) return;
 
     if (totalSnakes > 1 && aliveSnakes.length <= 1) {
-      this.gameOver = true;
+      // Start game over delay
+      this.gameOverTime = performance.now();
       if (aliveSnakes.length === 1) {
         this.winner = aliveSnakes[0];
       }
     } else if (totalSnakes === 1 && aliveSnakes.length === 0) {
-      this.gameOver = true;
+      // Start game over delay
+      this.gameOverTime = performance.now();
     }
   }
 

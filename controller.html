@@ -856,6 +856,26 @@
       });
     }
 
+    // Request motion permission (needed for iOS)
+    async function requestMotionPermission() {
+      if (typeof DeviceMotionEvent !== 'undefined' &&
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const permission = await DeviceMotionEvent.requestPermission();
+          if (permission === 'granted') {
+            hideTiltWarning();
+            // Reload to reinitialize tilt tracking
+            window.location.reload();
+          }
+        } catch (e) {
+          console.error('Permission error:', e);
+        }
+      } else {
+        // Not iOS, try reloading
+        window.location.reload();
+      }
+    }
+
     // Tilt warning
     function showTiltWarning() {
       let warning = document.getElementById('tilt-warning');
@@ -877,9 +897,21 @@
         `;
         warning.innerHTML = `
           <strong>Tilt controls not working?</strong><br>
-          Refresh the page and allow motion access when prompted.
+          <button id="enable-motion-btn" style="
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            background: white;
+            color: #c0392b;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+          ">Enable Motion Access</button>
         `;
         document.body.appendChild(warning);
+
+        document.getElementById('enable-motion-btn').addEventListener('click', requestMotionPermission);
       }
       warning.style.display = 'block';
     }

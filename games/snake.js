@@ -75,6 +75,8 @@ class SnakeGame extends GameEngine {
     const startX = Math.floor(Math.random() * (safeWidth - 10)) + 5;
     const startY = Math.floor(Math.random() * (safeHeight - 10)) + 5;
 
+    console.log('Snake spawn:', { gridWidth: this.gridWidth, gridHeight: this.gridHeight, startX, startY });
+
     // Random starting direction
     const directions = ['up', 'down', 'left', 'right'];
     const dir = directions[Math.floor(Math.random() * 4)];
@@ -191,6 +193,7 @@ class SnakeGame extends GameEngine {
       // Wall collision
       if (head.x < 0 || head.x >= this.gridWidth ||
           head.y < 0 || head.y >= this.gridHeight) {
+        console.log('Wall collision!', { head, gridWidth: this.gridWidth, gridHeight: this.gridHeight });
         snake.dead = true;
         return;
       }
@@ -225,11 +228,13 @@ class SnakeGame extends GameEngine {
     if (totalSnakes === 0) return;
 
     if (totalSnakes > 1 && aliveSnakes.length <= 1) {
+      console.log('Game over: multiplayer, one or zero alive');
       this.gameOver = true;
       if (aliveSnakes.length === 1) {
         this.winner = aliveSnakes[0];
       }
     } else if (totalSnakes === 1 && aliveSnakes.length === 0) {
+      console.log('Game over: single player died');
       this.gameOver = true;
     }
   }

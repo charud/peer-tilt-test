@@ -76,13 +76,30 @@ class SnakeGame extends GameEngine {
     return false;
   }
 
+  isSpawnAreaOccupied(x, y) {
+    // Check if spawn area (3x3 around spawn point) overlaps any snake
+    for (const snake of Object.values(this.snakes)) {
+      for (const segment of snake.body) {
+        if (Math.abs(segment.x - x) <= 3 && Math.abs(segment.y - y) <= 3) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   onPlayerJoin(player) {
     // Spawn snake at random position (safely within bounds)
     const safeWidth = Math.max(10, this.gridWidth);
     const safeHeight = Math.max(10, this.gridHeight);
-    const startX = Math.floor(Math.random() * (safeWidth - 10)) + 5;
-    const startY = Math.floor(Math.random() * (safeHeight - 10)) + 5;
 
+    // Try to find a spawn position that doesn't overlap other snakes
+    let startX, startY, attempts = 0;
+    do {
+      startX = Math.floor(Math.random() * (safeWidth - 10)) + 5;
+      startY = Math.floor(Math.random() * (safeHeight - 10)) + 5;
+      attempts++;
+    } while (this.isSpawnAreaOccupied(startX, startY) && attempts < 50);
 
     // Random starting direction
     const directions = ['up', 'down', 'left', 'right'];
@@ -221,7 +238,8 @@ class SnakeGame extends GameEngine {
     if (this.gridWidth === 0 || this.gridHeight === 0) return;
 
     Object.values(this.snakes).forEach(snake => {
-      if (snake.dead) return;
+      // Skip dead snakes and snakes still waiting for first input
+      if (snake.dead || snake.waiting) return;
 
       const head = snake.body[0];
 

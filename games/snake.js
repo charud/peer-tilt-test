@@ -14,7 +14,7 @@ class SnakeGame extends GameEngine {
     this.gameSpeed = this.slowGameSpeed; // Start slow
     this.lastMoveTime = 0;
     this.gameStartTime = null; // Set when first player starts moving
-    this.learningPeriod = 10000; // 10 seconds of slow speed
+    this.learningPeriod = 5000; // 5 seconds learning period per player
 
     // Game area (set in resize)
     this.gridWidth = 0;
@@ -24,6 +24,10 @@ class SnakeGame extends GameEngine {
 
     this.gameOver = false;
     this.winner = null;
+
+    // Explosion particles
+    this.explosions = [];
+    this.explosionDuration = 800; // ms
 
     this.resize();
     this.spawnFood();
@@ -118,8 +122,14 @@ class SnakeGame extends GameEngine {
       nextDirection: dir,
       dead: false,
       score: 0,
-      waiting: true // Wait for first input before moving
+      waiting: false, // Start moving immediately
+      moveStartTime: performance.now() // Learning period starts now
     };
+
+    // Start game timer if this is the first player
+    if (!this.gameStartTime) {
+      this.gameStartTime = performance.now();
+    }
 
   }
 
@@ -139,33 +149,92 @@ class SnakeGame extends GameEngine {
 
     let newDirection = null;
 
+    // Get the opposite direction based on body position (not stored direction)
+    // This prevents 180-degree turns even on first move
+    const head = snake.body[0];
+    const neck = snake.body[1];
+    let oppositeDir = null;
+    if (neck) {
+      if (neck.x < head.x) oppositeDir = 'left';      // neck is left of head, can't go left
+      else if (neck.x > head.x) oppositeDir = 'right'; // neck is right of head, can't go right
+      else if (neck.y < head.y) oppositeDir = 'up';    // neck is above head, can't go up
+      else if (neck.y > head.y) oppositeDir = 'down';  // neck is below head, can't go down
+    }
+
     // Determine strongest direction from tilt
     if (Math.abs(gamma) > Math.abs(beta) && Math.abs(gamma) > threshold) {
       // Horizontal movement is stronger
-      if (gamma < 0 && snake.direction !== 'right') {
+      if (gamma < 0 && oppositeDir !== 'left') {
         newDirection = 'left';
-      } else if (gamma > 0 && snake.direction !== 'left') {
+      } else if (gamma > 0 && oppositeDir !== 'right') {
         newDirection = 'right';
       }
     } else if (Math.abs(beta) > threshold) {
       // Vertical movement is stronger
-      if (beta < 0 && snake.direction !== 'down') {
+      if (beta < 0 && oppositeDir !== 'up') {
         newDirection = 'up';
-      } else if (beta > 0 && snake.direction !== 'up') {
+      } else if (beta > 0 && oppositeDir !== 'down') {
         newDirection = 'down';
       }
     }
 
     if (newDirection) {
       snake.nextDirection = newDirection;
-      if (snake.waiting) {
-        snake.waiting = false;
-        // Start game timer when first player moves
-        if (!this.gameStartTime) {
-          this.gameStartTime = performance.now();
-        }
-      }
     }
+  }
+
+  // Check if a snake is still in learning period (invulnerable)
+  isInLearningPeriod(snake) {
+    if (snake.waiting) return true; // Still waiting to start
+    if (!snake.moveStartTime) return false;
+    return (performance.now() - snake.moveStartTime) < this.learningPeriod;
+  }
+
+  // Get remaining learning time in seconds
+  getLearningTimeRemaining(snake) {
+    if (snake.waiting) return Math.ceil(this.learningPeriod / 1000);
+    if (!snake.moveStartTime) return 0;
+    const remaining = this.learningPeriod - (performance.now() - snake.moveStartTime);
+    return Math.max(0, Math.ceil(remaining / 1000));
+  }
+
+  // Create explosion effect at snake's position
+  createExplosion(snake) {
+    const particles = [];
+    const color = snake.player.color;
+
+    // Create particles from each body segment
+    snake.body.forEach((segment, i) => {
+      const px = this.offsetX + segment.x * this.gridSize + this.gridSize / 2;
+      const py = this.offsetY + segment.y * this.gridSize + this.gridSize / 2;
+
+      // More particles for head
+      const count = i === 0 ? 12 : 4;
+      for (let j = 0; j < count; j++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 100 + Math.random() * 200;
+        particles.push({
+          x: px,
+          y: py,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          size: 4 + Math.random() * 8,
+          color: color
+        });
+      }
+    });
+
+    this.explosions.push({
+      particles,
+      startTime: performance.now()
+    });
+  }
+
+  // Kill a snake and trigger explosion
+  killSnake(snake) {
+    if (snake.dead) return;
+    snake.dead = true;
+    this.createExplosion(snake);
   }
 
   update(deltaTime) {
@@ -216,6 +285,34 @@ class SnakeGame extends GameEngine {
         case 'right': newX++; break;
       }
 
+      // During warmup, auto-turn if about to hit wall
+      if (this.isInLearningPeriod(snake)) {
+        if (newX < 0 || newX >= this.gridWidth || newY < 0 || newY >= this.gridHeight) {
+          // Pick a safe direction to turn
+          const safeDirections = [];
+          if (head.x > 0 && snake.direction !== 'right') safeDirections.push('left');
+          if (head.x < this.gridWidth - 1 && snake.direction !== 'left') safeDirections.push('right');
+          if (head.y > 0 && snake.direction !== 'down') safeDirections.push('up');
+          if (head.y < this.gridHeight - 1 && snake.direction !== 'up') safeDirections.push('down');
+
+          if (safeDirections.length > 0) {
+            // Pick a random safe direction
+            snake.direction = safeDirections[Math.floor(Math.random() * safeDirections.length)];
+            snake.nextDirection = snake.direction;
+
+            // Recalculate new position
+            newX = head.x;
+            newY = head.y;
+            switch (snake.direction) {
+              case 'up': newY--; break;
+              case 'down': newY++; break;
+              case 'left': newX--; break;
+              case 'right': newX++; break;
+            }
+          }
+        }
+      }
+
       // Add new head
       snake.body.unshift({ x: newX, y: newY });
 
@@ -241,30 +338,33 @@ class SnakeGame extends GameEngine {
       // Skip dead snakes and snakes still waiting for first input
       if (snake.dead || snake.waiting) return;
 
+      // Skip collision checks for snakes in learning period (invulnerable)
+      if (this.isInLearningPeriod(snake)) return;
+
       const head = snake.body[0];
 
       // Wall collision
       if (head.x < 0 || head.x >= this.gridWidth ||
           head.y < 0 || head.y >= this.gridHeight) {
-        snake.dead = true;
+        this.killSnake(snake);
         return;
       }
 
       // Self collision (skip head)
       for (let i = 1; i < snake.body.length; i++) {
         if (snake.body[i].x === head.x && snake.body[i].y === head.y) {
-          snake.dead = true;
+          this.killSnake(snake);
           return;
         }
       }
 
-      // Other snake collision (skip waiting snakes - they're invulnerable until they move)
+      // Other snake collision (skip snakes in learning period - they're invulnerable)
       Object.values(this.snakes).forEach(other => {
-        if (other === snake || other.dead || other.waiting) return;
+        if (other === snake || other.dead || this.isInLearningPeriod(other)) return;
 
         for (const segment of other.body) {
           if (segment.x === head.x && segment.y === head.y) {
-            snake.dead = true;
+            this.killSnake(snake);
             return;
           }
         }
@@ -275,14 +375,14 @@ class SnakeGame extends GameEngine {
   checkWinner() {
     const allSnakes = Object.values(this.snakes);
     const aliveSnakes = allSnakes.filter(s => !s.dead);
-    const waitingSnakes = allSnakes.filter(s => s.waiting);
+    const learningSnakes = allSnakes.filter(s => this.isInLearningPeriod(s));
     const totalSnakes = allSnakes.length;
 
     // Don't check for winner if no players yet
     if (totalSnakes === 0) return;
 
-    // Don't end game while any snake is still waiting to start
-    if (waitingSnakes.length > 0) return;
+    // Don't end game while any snake is still in learning period
+    if (learningSnakes.length > 0) return;
 
     if (totalSnakes > 1 && aliveSnakes.length <= 1) {
       this.gameOver = true;
@@ -344,9 +444,18 @@ class SnakeGame extends GameEngine {
     });
 
     // Draw snakes
+    const now = performance.now();
     Object.values(this.snakes).forEach(snake => {
-      if (snake.dead) {
-        ctx.globalAlpha = 0.3;
+      // Skip dead snakes - they exploded
+      if (snake.dead) return;
+
+      const inLearning = this.isInLearningPeriod(snake);
+
+      if (inLearning) {
+        // Blinking transparency during learning period
+        const blinkSpeed = 200; // ms per blink cycle
+        const blink = Math.sin(now / blinkSpeed * Math.PI);
+        ctx.globalAlpha = 0.4 + blink * 0.3; // Oscillate between 0.1 and 0.7
       }
 
       // Draw body
@@ -374,7 +483,7 @@ class SnakeGame extends GameEngine {
         );
 
         // Eyes on head
-        if (i === 0 && !snake.dead) {
+        if (i === 0) {
           ctx.shadowBlur = 0;
           ctx.fillStyle = 'white';
           const eyeSize = 4;
@@ -415,18 +524,20 @@ class SnakeGame extends GameEngine {
         }
       });
 
-      // Player name above head
-      if (!snake.dead) {
+      // Player name above head (and countdown during learning period)
         const head = snake.body[0];
         const px = this.offsetX + head.x * this.gridSize + this.gridSize / 2;
-        const py = this.offsetY + head.y * this.gridSize - 10;
+        const baseY = this.offsetY + head.y * this.gridSize - 10;
 
+        ctx.globalAlpha = 1; // Reset alpha for text
+
+        // Draw player name first
         const displayName = snake.player.name || `Player ${snake.player.number}`;
         ctx.font = 'bold 14px system-ui';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
 
-        // Background pill
+        // Background pill for name
         const textWidth = ctx.measureText(displayName).width;
         const pillPadding = 6;
         const pillHeight = 18;
@@ -436,7 +547,7 @@ class SnakeGame extends GameEngine {
         const pillX = px - textWidth / 2 - pillPadding;
         const pillW = textWidth + pillPadding * 2;
         const pillR = pillHeight / 2;
-        ctx.roundRect(pillX, py - pillHeight, pillW, pillHeight, pillR);
+        ctx.roundRect(pillX, baseY - pillHeight, pillW, pillHeight, pillR);
         ctx.fill();
 
         ctx.strokeStyle = snake.player.color;
@@ -444,11 +555,69 @@ class SnakeGame extends GameEngine {
         ctx.stroke();
 
         ctx.fillStyle = 'white';
-        ctx.fillText(displayName, px, py - 3);
-      }
+        ctx.fillText(displayName, px, baseY - 3);
+
+        // Show "Get Ready" countdown ABOVE the name during learning period
+        if (inLearning) {
+          const timeRemaining = this.getLearningTimeRemaining(snake);
+          const countdownText = `Get Ready: ${timeRemaining}`;
+
+          ctx.font = 'bold 16px system-ui';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+
+          // Countdown background pill - positioned above the name
+          const countdownWidth = ctx.measureText(countdownText).width;
+          const countdownPadding = 8;
+          const countdownHeight = 22;
+          const countdownY = baseY - pillHeight - 8; // Above the name pill
+
+          ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
+          ctx.beginPath();
+          ctx.roundRect(
+            px - countdownWidth / 2 - countdownPadding,
+            countdownY - countdownHeight,
+            countdownWidth + countdownPadding * 2,
+            countdownHeight,
+            countdownHeight / 2
+          );
+          ctx.fill();
+
+          ctx.fillStyle = '#1a1a2e';
+          ctx.fillText(countdownText, px, countdownY - 4);
+        }
 
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
+    });
+
+    // Draw explosions
+    this.explosions = this.explosions.filter(explosion => {
+      const elapsed = now - explosion.startTime;
+      if (elapsed > this.explosionDuration) return false; // Remove finished explosions
+
+      const progress = elapsed / this.explosionDuration;
+      const alpha = 1 - progress; // Fade out
+
+      explosion.particles.forEach(p => {
+        // Update position
+        p.x += p.vx * 0.016; // Approximate dt
+        p.y += p.vy * 0.016;
+        p.vy += 300 * 0.016; // Gravity
+
+        // Draw particle
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (1 - progress * 0.5), 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+      return true; // Keep this explosion
     });
 
     // Draw scoreboard (top-right)

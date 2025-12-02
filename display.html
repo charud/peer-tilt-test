@@ -230,12 +230,29 @@
     let game = null;
     let currentGameId = null;
 
+    // Debug player for keyboard/mouse control
+    let debugPlayer = null;
+
+    function createDebugPlayer() {
+      debugPlayer = {
+        id: 'debug-player',
+        peerId: 'debug-player',
+        number: 0,
+        name: 'Debug',
+        color: '#ffd700',
+        input: { x: 0, y: 0 },
+        connected: true
+      };
+      return debugPlayer;
+    }
+
     async function init() {
-      // Populate game list
+      // Populate game list (clickable for debug)
       const gameListEl = document.getElementById('game-list');
       GAME_LIST.forEach(g => {
         const card = document.createElement('div');
         card.className = 'game-card';
+        card.style.cursor = 'pointer';
         card.innerHTML = `
           <div class="game-icon">${g.icon}</div>
           <div class="game-info">
@@ -243,7 +260,59 @@
             <p>${g.description}</p>
           </div>
         `;
+        // Click to start game with debug player
+        card.addEventListener('click', () => {
+          createDebugPlayer();
+          startGame(g.id);
+          if (game) {
+            game.onPlayerJoin(debugPlayer);
+          }
+        });
         gameListEl.appendChild(card);
+      });
+
+      // Keyboard controls for debug player
+      document.addEventListener('keydown', (e) => {
+        if (!debugPlayer || !game) return;
+
+        const speed = 1;
+        switch (e.key) {
+          case 'ArrowUp':
+          case 'w':
+            debugPlayer.input.y = -speed;
+            debugPlayer.input.x = 0;
+            break;
+          case 'ArrowDown':
+          case 's':
+            debugPlayer.input.y = speed;
+            debugPlayer.input.x = 0;
+            break;
+          case 'ArrowLeft':
+          case 'a':
+            debugPlayer.input.x = -speed;
+            debugPlayer.input.y = 0;
+            break;
+          case 'ArrowRight':
+          case 'd':
+            debugPlayer.input.x = speed;
+            debugPlayer.input.y = 0;
+            break;
+          case ' ':
+            // Space for jump/serve
+            if (game && typeof game.serve === 'function') {
+              game.serve(debugPlayer.id);
+            }
+            break;
+          case 'Escape':
+            // End game
+            endGame();
+            debugPlayer = null;
+            break;
+        }
+
+        if (game) {
+          game.onPlayerInput(debugPlayer, debugPlayer.input);
+        }
       });
 
       // Initialize connection manager

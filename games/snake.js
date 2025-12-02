@@ -36,6 +36,8 @@ class SnakeGame extends GameEngine {
     // Center the grid
     this.offsetX = (this.width - this.gridWidth * this.gridSize) / 2;
     this.offsetY = (this.height - this.gridHeight * this.gridSize) / 2;
+
+    console.log('Snake resize:', { width: this.width, height: this.height, gridWidth: this.gridWidth, gridHeight: this.gridHeight });
   }
 
   spawnFood() {
@@ -185,6 +187,9 @@ class SnakeGame extends GameEngine {
   }
 
   checkCollisions() {
+    // Don't check collisions if grid isn't set up yet
+    if (this.gridWidth === 0 || this.gridHeight === 0) return;
+
     Object.values(this.snakes).forEach(snake => {
       if (snake.dead) return;
 

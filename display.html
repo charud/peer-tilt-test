@@ -322,7 +322,9 @@
       });
 
       // Initialize connection manager
+      // Fixed room code for party - phones can reconnect even if display refreshes
       connection = new ConnectionManager({
+        roomCode: 'PARTY1',
         controllerUrl: 'https://charud.github.io/peer-tilt-test/controller.html',
 
         onReady: (roomCode, url) => {

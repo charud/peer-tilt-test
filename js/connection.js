@@ -4,7 +4,8 @@ class ConnectionManager {
   constructor(options = {}) {
     this.players = {};
     this.peer = null;
-    this.roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Use fixed room code if provided, otherwise generate random
+    this.roomCode = options.roomCode || Math.random().toString(36).substring(2, 8).toUpperCase();
     this.controllerBaseUrl = options.controllerUrl || 'https://charud.github.io/peer-tilt-test/controller.html';
     this.onPlayerJoin = options.onPlayerJoin || (() => {});
     this.onPlayerLeave = options.onPlayerLeave || (() => {});

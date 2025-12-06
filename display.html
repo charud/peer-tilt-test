@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tilt Party Games</title>
+  <title>Party Arcade by Tonima & Charlie</title>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
@@ -38,24 +38,63 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      padding: 60px;
+      justify-content: flex-start;
+      padding: 80px 60px;
     }
 
-    .lobby-title {
-      font-size: 3.5rem;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-      background: linear-gradient(135deg, #ffd700, #ff8c00);
+    .title-block {
+      margin-bottom: 1.5rem;
+    }
+
+    .title-main {
+      font-size: 7rem;
+      font-weight: 900;
+      line-height: 0.9;
+      background: linear-gradient(180deg, #ff6b6b, #feca57);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      letter-spacing: -0.02em;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .title-arcade {
+      font-size: 5rem;
+      font-weight: 900;
+      line-height: 1;
+      background: linear-gradient(180deg, #48dbfb, #54a0ff, #5f27cd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+
+    .title-byline {
+      font-size: 2.4rem;
+      font-weight: 600;
+      line-height: 1.2;
+      background: linear-gradient(180deg, #ff9ff3, #f8b500);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      padding-left: 1.5rem;
+      border-left: 4px solid #ff9ff3;
     }
 
     .lobby-subtitle {
-      font-size: 1.3rem;
-      opacity: 0.6;
+      font-size: 1.9rem;
+      font-weight: 500;
       margin-bottom: 3rem;
+      background: linear-gradient(90deg, #a0d2eb, #64dfdf, #48dbfb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 0.03em;
     }
 
     .games-label {
@@ -188,7 +227,13 @@
   <!-- Lobby / Game Selection -->
   <div id="lobby">
     <div class="lobby-left">
-      <h1 class="lobby-title">Tilt Party</h1>
+      <div class="title-block">
+        <div class="title-main">PARTY</div>
+        <div class="title-row">
+          <span class="title-arcade">ARCADE</span>
+          <span class="title-byline">by Tonima<br>& Charlie</span>
+        </div>
+      </div>
       <p class="lobby-subtitle">Multiplayer games with your phone as controller</p>
 
       <p class="games-label">Available Games</p>

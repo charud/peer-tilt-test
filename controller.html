@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=portrait">
   <meta name="screen-orientation" content="portrait">
-  <title>Tilt Party Controller</title>
+  <title>Party Arcade Controller</title>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -441,7 +441,7 @@
 <body>
   <!-- Connecting view (shown during auto-connect) -->
   <div id="connecting-view" class="view active">
-    <div class="app-title">Tilt Party</div>
+    <div class="app-title">Party Arcade</div>
     <div class="app-subtitle">Phone Controller</div>
     <p id="status">Connecting...</p>
     <div class="spinner" id="spinner"></div>
@@ -450,7 +450,7 @@
 
   <!-- Name entry view -->
   <div id="name-view" class="view">
-    <div class="app-title">Tilt Party</div>
+    <div class="app-title">Party Arcade</div>
     <p class="name-label">Your name</p>
     <input type="text" id="player-name" class="name-input" maxlength="12" autocomplete="off" />
     <button id="shuffle-btn" class="shuffle-btn">Shuffle name</button>
@@ -460,7 +460,7 @@
   <!-- Game selection view -->
   <div id="select-view" class="view">
     <button id="leave-btn-lobby" class="leave-btn">Leave</button>
-    <div class="app-title">Tilt Party</div>
+    <div class="app-title">Party Arcade</div>
     <p class="section-title">Select a game to play</p>
     <div class="game-list" id="game-list">
       <!-- Populated by JS -->

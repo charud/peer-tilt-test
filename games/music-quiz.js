@@ -34,8 +34,40 @@ class MusicQuizGame extends GameEngine {
     this.showingResults = false;
     this.resultTimer = null;
 
+    // Click handler for genre selection on display
+    this.canvas.addEventListener('click', (e) => this.handleClick(e));
+
     // Initialize
     this.loadGenres();
+  }
+
+  handleClick(e) {
+    if (this.phase === 'genre-select') {
+      // Check if clicked on a genre box
+      const rect = this.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const cols = 4;
+      const boxWidth = 200;
+      const boxHeight = 60;
+      const gap = 20;
+      const startX = this.width / 2 - (cols * (boxWidth + gap) - gap) / 2;
+      const startY = 300;
+
+      for (let i = 0; i < this.genres.length; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const bx = startX + col * (boxWidth + gap);
+        const by = startY + row * (boxHeight + gap);
+
+        if (x >= bx && x <= bx + boxWidth && y >= by && y <= by + boxHeight) {
+          this.selectedGenre = this.genres[i];
+          this.startGame();
+          break;
+        }
+      }
+    }
   }
 
   async loadGenres() {

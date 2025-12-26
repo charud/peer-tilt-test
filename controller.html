@@ -768,7 +768,10 @@
           document.getElementById('current-game-name').textContent = game.name;
           updateControllerUI(game);
         }
-        showView('controller-view');
+        // Don't show controller-view for quiz - wait for genre-select or question
+        if (data.gameId !== 'music-quiz') {
+          showView('controller-view');
+        }
       }
       else if (data.type === 'game-ended') {
         currentGameId = null;

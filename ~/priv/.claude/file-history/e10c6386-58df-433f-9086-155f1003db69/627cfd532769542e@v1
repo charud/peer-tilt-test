@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=portrait">
+  <meta name="screen-orientation" content="portrait">
+  <title>Party Arcade Controller</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* Lock to portrait orientation visually */
+    @media screen and (orientation: landscape) {
+      html {
+        transform: rotate(-90deg);
+        transform-origin: left top;
+        width: 100vh;
+        height: 100vw;
+        overflow-x: hidden;
+        position: absolute;
+        top: 100%;
+        left: 0;
+      }
+    }
+
+    body {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: white;
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    /* Views */
+    .view {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 400px;
+    }
+    .view.active {
+      display: flex;
+    }
+
+    /* Connecting view */
+    .app-title {
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .app-subtitle {
+      font-size: 1rem;
+      opacity: 0.6;
+      margin-bottom: 2rem;
+    }
+
+    #status {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      min-height: 1.5rem;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 215, 0, 0.2);
+      border-top-color: #ffd700;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .btn {
+      padding: 1rem 2.5rem;
+      font-size: 1.2rem;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      color: #1a1a2e;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .error { color: #f87171; }
+
+    /* Name entry view */
+    .name-label {
+      font-size: 1.1rem;
+      opacity: 0.7;
+      margin-bottom: 1rem;
+    }
+
+    .name-input {
+      width: 100%;
+      max-width: 280px;
+      padding: 1rem 1.5rem;
+      font-size: 1.4rem;
+      font-weight: bold;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 215, 0, 0.3);
+      border-radius: 16px;
+      color: white;
+      margin-bottom: 0.75rem;
+      outline: none;
+    }
+
+    .name-input:focus {
+      border-color: #ffd700;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .shuffle-btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      margin-bottom: 2rem;
+    }
+
+    .shuffle-btn:active {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Leave button */
+    .leave-btn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      color: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+    }
+
+    .leave-btn:active {
+      background: rgba(255, 100, 100, 0.3);
+      color: white;
+    }
+
+    /* Reset players button */
+    .reset-btn {
+      margin-top: 2rem;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.75rem;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      color: rgba(255, 255, 255, 0.3);
+      cursor: pointer;
+    }
+
+    .reset-btn:active {
+      background: rgba(255, 100, 100, 0.2);
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* Game selection view */
+    .section-title {
+      font-size: 1.2rem;
+      opacity: 0.6;
+      margin-bottom: 1rem;
+    }
+
+    .game-list {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+
+    .game-btn {
+      width: 100%;
+      padding: 1.2rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 215, 0, 0.3);
+      border-radius: 16px;
+      color: white;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: all 0.2s;
+    }
+
+    .game-btn:active {
+      background: rgba(255, 215, 0, 0.2);
+      border-color: #ffd700;
+    }
+
+    .game-btn .icon {
+      font-size: 2rem;
+      width: 50px;
+      height: 50px;
+      background: rgba(255, 215, 0, 0.1);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .game-btn .info {
+      text-align: left;
+    }
+
+    .game-btn .name {
+      font-weight: bold;
+      margin-bottom: 0.2rem;
+    }
+
+    .game-btn .desc {
+      font-size: 0.85rem;
+      opacity: 0.6;
+    }
+
+    /* Controller view */
+    #controller-view {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      padding: 40px 20px;
+    }
+
+    .game-header {
+      margin-bottom: 1rem;
+    }
+
+    .game-name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .tilt-indicator {
+      width: 200px;
+      height: 200px;
+      border: 3px solid rgba(255, 215, 0, 0.3);
+      border-radius: 50%;
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+
+    .tilt-dot {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+      transition: transform 0.05s ease-out;
+    }
+
+    .tilt-crosshair {
+      position: absolute;
+      background: rgba(255, 215, 0, 0.2);
+    }
+
+    .tilt-crosshair.horizontal {
+      width: 100%;
+      height: 1px;
+      top: 50%;
+      left: 0;
+    }
+
+    .tilt-crosshair.vertical {
+      width: 1px;
+      height: 100%;
+      top: 0;
+      left: 50%;
+    }
+
+    .instruction {
+      font-size: 1.3rem;
+      font-weight: bold;
+      margin-bottom: 0.3rem;
+    }
+
+    .instruction-sub {
+      font-size: 0.95rem;
+      opacity: 0.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .end-game-btn {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0.6rem 1.2rem;
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 30px;
+      color: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+    }
+
+    .end-game-btn:active {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+
+    /* Restart button */
+    .restart-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      color: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+    }
+
+    .restart-btn:active {
+      background: rgba(255, 215, 0, 0.3);
+      color: white;
+    }
+
+    /* Action button (jump/serve) */
+    .action-btn {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      border: none;
+      color: #1a1a2e;
+      font-size: 1.3rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 6px 30px rgba(255, 215, 0, 0.5);
+      margin-bottom: 1.5rem;
+      display: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .action-btn.visible {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .action-btn:active {
+      transform: scale(0.92);
+      box-shadow: 0 2px 15px rgba(255, 215, 0, 0.4);
+    }
+
+    /* Horizontal tilt bar for volleyball */
+    .tilt-bar-container {
+      width: 280px;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 30px;
+      position: relative;
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+
+    .tilt-bar-container.visible {
+      display: block;
+    }
+
+    .tilt-bar-dot {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      border-radius: 50%;
+      position: absolute;
+      top: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+      transition: left 0.05s ease-out;
+    }
+
+    .tilt-bar-labels {
+      position: absolute;
+      width: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      justify-content: space-between;
+      padding: 0 15px;
+      font-size: 0.8rem;
+      opacity: 0.4;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Connecting view (shown during auto-connect) -->
+  <div id="connecting-view" class="view active">
+    <div class="app-title">Party Arcade</div>
+    <div class="app-subtitle">Phone Controller</div>
+    <p id="status">Connecting...</p>
+    <div class="spinner" id="spinner"></div>
+    <button id="retry-btn" class="btn" style="display: none;">Retry</button>
+  </div>
+
+  <!-- Name entry view -->
+  <div id="name-view" class="view">
+    <div class="app-title">Party Arcade</div>
+    <p class="name-label">Your name</p>
+    <input type="text" id="player-name" class="name-input" maxlength="12" autocomplete="off" />
+    <button id="shuffle-btn" class="shuffle-btn">Shuffle name</button>
+    <button id="join-btn" class="btn">Join Game</button>
+  </div>
+
+  <!-- Game selection view -->
+  <div id="select-view" class="view">
+    <button id="leave-btn-lobby" class="leave-btn">Leave</button>
+    <div class="app-title">Party Arcade</div>
+    <p class="section-title">Select a game to play</p>
+    <div class="game-list" id="game-list">
+      <!-- Populated by JS -->
+    </div>
+    <button id="reset-players-btn" class="reset-btn">Reset All Players</button>
+  </div>
+
+  <!-- Controller view (in-game) -->
+  <div id="controller-view" class="view">
+    <button id="leave-btn-game" class="leave-btn">Leave</button>
+    <button id="end-game-btn" class="end-game-btn">End Game</button>
+    <button id="restart-btn" class="restart-btn">Restart</button>
+    <div class="game-header">
+      <div class="game-name" id="current-game-name">Bumper Cars</div>
+    </div>
+    <div class="tilt-indicator" id="tilt-indicator">
+      <div class="tilt-crosshair horizontal"></div>
+      <div class="tilt-crosshair vertical"></div>
+      <div class="tilt-dot" id="tilt-dot"></div>
+    </div>
+    <div class="tilt-bar-container" id="tilt-bar">
+      <div class="tilt-bar-dot" id="tilt-bar-dot"></div>
+      <div class="tilt-bar-labels">
+        <span>LEFT</span>
+        <span>RIGHT</span>
+      </div>
+    </div>
+    <p class="instruction" id="instruction-main">Tilt to drive!</p>
+    <p class="instruction-sub" id="instruction-sub">Push others off the arena</p>
+    <button id="action-btn" class="action-btn">JUMP</button>
+
+    <!-- Quiz controls -->
+    <div id="quiz-controls" style="display: none; width: 100%;">
+      <div id="quiz-status" style="font-size: 1.1rem; margin-bottom: 1rem; opacity: 0.8;">Waiting...</div>
+      <div id="quiz-options" style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%; max-width: 350px;"></div>
+      <div id="quiz-result" style="display: none; margin-top: 1.5rem; text-align: center;">
+        <div id="quiz-result-icon" style="font-size: 3rem; margin-bottom: 0.5rem;"></div>
+        <div id="quiz-result-text" style="font-size: 1.2rem; font-weight: bold;"></div>
+        <div id="quiz-result-points" style="font-size: 1rem; opacity: 0.8;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Genre selection view -->
+  <div id="genre-view" class="view">
+    <button id="leave-btn-genre" class="leave-btn">Leave</button>
+    <div class="app-title">Music Quiz</div>
+    <p class="section-title" style="margin-bottom: 1.5rem;">Pick a Genre!</p>
+    <div id="genre-list" style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%; max-width: 300px;"></div>
+  </div>
+
+  <script>
+    // Fun random names - it's a party!
+    const FUN_NAMES = [
+      // Food chaos
+      'AngryTaco', 'ChunkyNugget', 'SoggyWaffle', 'SpicyPickle', 'CrazyBurrito',
+      'FunkyPotato', 'WildNoodle', 'MadMuffin', 'CheesyBean', 'SassySushi',
+      'BoozyBanana', 'CrispyBacon', 'ZestyLemon', 'NachoBoss', 'ToastyCroissant',
+      // Animal madness
+      'DizzyLlama', 'FunkyMonkey', 'SneakyPanda', 'WobblyCat', 'ChonkyDog',
+      'CrazyCrab', 'BouncyFrog', 'GrumpyGoose', 'SassySloth', 'TurboTurtle',
+      'FluffyShark', 'DancingMoose', 'NinjaDuck', 'PartyPenguin', 'DiscoFish',
+      // Silly titles
+      'CaptainChaos', 'LordOfLag', 'BaronVonBonk', 'SirBonks', 'DukeDerp',
+      'MajorMayhem', 'GeneralGoof', 'ChiefWiggles', 'BossBaby', 'KingKlutzy',
+      // Random vibes
+      'YeetMaster', 'BonkZilla', 'OofLord', 'BigYikes', 'MegaDerp',
+      'TinyTerror', 'ChaosCookie', 'GlitterBomb', 'SparkleGoon', 'WackyWombat',
+      'BumbleBiff', 'ZippyZoomer', 'BoopSnoot', 'WiggleButt', 'SnazzyPants',
+      'GoofTroop', 'BananaBrain', 'NoodleArms', 'JellyLegs', 'TaterTot'
+    ];
+
+    let peer;
+    let conn;
+    let isConnected = false;
+    let hasJoined = false;
+    let playerName = '';
+    let currentGameId = null;
+    let games = [];
+
+    // Support both ?room=XXX and #XXX formats
+    const params = new URLSearchParams(window.location.search);
+    const roomCode = params.get('room') || window.location.hash.slice(1);
+
+    // Get random name
+    function getRandomName() {
+      return FUN_NAMES[Math.floor(Math.random() * FUN_NAMES.length)];
+    }
+
+    // Load saved name or generate random one
+    function getSavedName() {
+      return localStorage.getItem('tiltparty-name') || getRandomName();
+    }
+
+    // Save name to localStorage
+    function saveName(name) {
+      localStorage.setItem('tiltparty-name', name);
+    }
+
+    // Initialize name input with saved name (or random if none)
+    document.getElementById('player-name').value = getSavedName();
+
+    // Shuffle button
+    document.getElementById('shuffle-btn').addEventListener('click', () => {
+      document.getElementById('player-name').value = getRandomName();
+    });
+
+    // View management
+    function showView(viewId) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(viewId).classList.add('active');
+    }
+
+    // Show error state
+    function showError(message) {
+      document.getElementById('status').textContent = message;
+      document.getElementById('status').className = 'error';
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('retry-btn').style.display = 'block';
+    }
+
+    // Start connection
+    async function connect() {
+      if (!roomCode) {
+        showError('Invalid link');
+        return;
+      }
+
+      document.getElementById('status').textContent = 'Connecting...';
+      document.getElementById('status').className = '';
+      document.getElementById('spinner').style.display = 'block';
+      document.getElementById('retry-btn').style.display = 'none';
+
+      // Request motion permission (required on iOS)
+      if (typeof DeviceMotionEvent !== 'undefined' &&
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const permission = await DeviceMotionEvent.requestPermission();
+          if (permission !== 'granted') {
+            showError('Motion permission needed');
+            return;
+          }
+        } catch (e) {
+          console.error('Permission error:', e);
+        }
+      }
+
+      // Create peer connection
+      peer = new Peer();
+
+      peer.on('open', (id) => {
+        conn = peer.connect('tilt-' + roomCode);
+
+        conn.on('open', () => {
+          isConnected = true;
+          startTiltTracking();
+          // Show name entry screen
+          showView('name-view');
+          document.getElementById('player-name').focus();
+        });
+
+        conn.on('data', (data) => {
+          handleMessage(data);
+        });
+
+        conn.on('close', () => {
+          isConnected = false;
+          hasJoined = false;
+          showView('connecting-view');
+          showError('Disconnected');
+        });
+
+        conn.on('error', (err) => {
+          showError('Connection error');
+          console.error(err);
+        });
+      });
+
+      peer.on('error', (err) => {
+        showError('Error: ' + err.type);
+        console.error(err);
+      });
+    }
+
+    // Retry button
+    document.getElementById('retry-btn').addEventListener('click', () => {
+      connect();
+    });
+
+    // Join button - send name and officially join
+    document.getElementById('join-btn').addEventListener('click', () => {
+      playerName = document.getElementById('player-name').value.trim() || getRandomName();
+      hasJoined = true;
+
+      // Save name for next time
+      saveName(playerName);
+
+      // Send join message with name
+      if (conn && conn.open) {
+        conn.send({ type: 'set-name', name: playerName });
+      }
+
+      // Request current game state
+      if (conn && conn.open) {
+        conn.send({ type: 'request-state' });
+      }
+    });
+
+    // Handle messages from display
+    function handleMessage(data) {
+      // Respond to heartbeat ping
+      if (data.type === 'ping') {
+        if (conn && conn.open) {
+          conn.send({ type: 'pong' });
+        }
+        return;
+      }
+
+      if (data.type === 'game-state') {
+        games = data.games || [];
+        currentGameId = data.gameId;
+
+        if (!hasJoined) return; // Don't switch views until joined
+
+        if (currentGameId) {
+          // Game in progress, show controller
+          const game = games.find(g => g.id === currentGameId);
+          if (game) {
+            document.getElementById('current-game-name').textContent = game.name;
+            updateControllerUI(game);
+          }
+          showView('controller-view');
+        } else {
+          // In lobby, show game selection
+          populateGameList();
+          showView('select-view');
+        }
+      }
+      else if (data.type === 'game-started') {
+        currentGameId = data.gameId;
+        const game = games.find(g => g.id === currentGameId);
+        if (game) {
+          document.getElementById('current-game-name').textContent = game.name;
+          updateControllerUI(game);
+        }
+        showView('controller-view');
+      }
+      else if (data.type === 'game-ended') {
+        currentGameId = null;
+        games = data.games || games;
+        populateGameList();
+        showView('select-view');
+      }
+    }
+
+    // Populate game selection list
+    function populateGameList() {
+      const listEl = document.getElementById('game-list');
+      listEl.innerHTML = '';
+
+      games.forEach(game => {
+        const btn = document.createElement('button');
+        btn.className = 'game-btn';
+        btn.innerHTML = `
+          <div class="icon">${game.icon}</div>
+          <div class="info">
+            <div class="name">${game.name}</div>
+            <div class="desc">${game.description}</div>
+          </div>
+        `;
+        btn.addEventListener('click', () => selectGame(game.id));
+        listEl.appendChild(btn);
+      });
+    }
+
+    // Select a game
+    function selectGame(gameId) {
+      if (conn && conn.open) {
+        conn.send({ type: 'select-game', gameId });
+      }
+    }
+
+    // End game button
+    document.getElementById('end-game-btn').addEventListener('click', () => {
+      if (conn && conn.open) {
+        conn.send({ type: 'end-game' });
+      }
+    });
+
+    // Restart game button
+    document.getElementById('restart-btn').addEventListener('click', () => {
+      if (conn && conn.open) {
+        conn.send({ type: 'restart-game' });
+      }
+    });
+
+    // Action button (jump for volleyball, could be other actions for other games)
+    document.getElementById('action-btn').addEventListener('click', () => {
+      if (conn && conn.open) {
+        conn.send({ type: 'serve' });
+      }
+    });
+
+    // Leave button (lobby) - disconnect and return to connecting screen
+    document.getElementById('leave-btn-lobby').addEventListener('click', () => {
+      leaveGame();
+    });
+
+    // Leave button (in-game) - disconnect and return to connecting screen
+    document.getElementById('leave-btn-game').addEventListener('click', () => {
+      leaveGame();
+    });
+
+    // Reset players button - send message to display to clear all players
+    document.getElementById('reset-players-btn').addEventListener('click', () => {
+      if (conn && conn.open) {
+        conn.send({ type: 'reset-players' });
+      }
+    });
+
+    // Leave/disconnect function
+    function leaveGame() {
+      if (conn) {
+        conn.close();
+      }
+      if (peer) {
+        peer.destroy();
+      }
+      isConnected = false;
+      hasJoined = false;
+      currentGameId = null;
+      showView('connecting-view');
+      // Reconnect after a moment
+      setTimeout(() => connect(), 500);
+    }
+
+    // Update controller UI based on game
+    function updateControllerUI(game) {
+      const actionBtn = document.getElementById('action-btn');
+      const tiltIndicator = document.getElementById('tilt-indicator');
+      const tiltBar = document.getElementById('tilt-bar');
+      const instructionMain = document.getElementById('instruction-main');
+      const instructionSub = document.getElementById('instruction-sub');
+
+      if (game.id === 'beach-volleyball') {
+        actionBtn.classList.add('visible');
+        actionBtn.textContent = 'JUMP';
+        tiltIndicator.style.display = 'none';
+        tiltBar.classList.add('visible');
+        instructionMain.textContent = 'Tilt left/right to move';
+        instructionSub.textContent = 'Jump to hit the ball!';
+      } else if (game.id === 'bumper-cars') {
+        actionBtn.classList.remove('visible');
+        tiltIndicator.style.display = 'block';
+        tiltBar.classList.remove('visible');
+        instructionMain.textContent = 'Tilt to drive!';
+        instructionSub.textContent = 'Push others off the arena';
+      } else {
+        actionBtn.classList.remove('visible');
+        tiltIndicator.style.display = 'block';
+        tiltBar.classList.remove('visible');
+        instructionMain.textContent = 'Tilt to move!';
+        instructionSub.textContent = '';
+      }
+    }
+
+    // Tilt tracking
+    function startTiltTracking() {
+      let lastSend = 0;
+      const throttleMs = 50;
+      const tiltDot = document.getElementById('tilt-dot');
+      const tiltBarDot = document.getElementById('tilt-bar-dot');
+      let tiltReceived = false;
+
+      // Check if tilt data is received after 2 seconds
+      setTimeout(() => {
+        if (!tiltReceived && hasJoined) {
+          showTiltWarning();
+        }
+      }, 2000);
+
+      window.addEventListener('deviceorientation', (e) => {
+        tiltReceived = true;
+        hideTiltWarning();
+
+        const now = Date.now();
+        if (now - lastSend < throttleMs) return;
+        lastSend = now;
+
+        const beta = e.beta || 0;
+        const gamma = e.gamma || 0;
+
+        const normalizedBeta = Math.max(-30, Math.min(30, beta - 30)) / 30;
+        const normalizedGamma = Math.max(-30, Math.min(30, gamma)) / 30;
+
+        // Update circular indicator (for bumper cars)
+        const offsetX = normalizedGamma * 70;
+        const offsetY = normalizedBeta * 70;
+        tiltDot.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+
+        // Update horizontal bar indicator (for volleyball)
+        const barOffset = normalizedGamma * 115;
+        tiltBarDot.style.left = `calc(50% + ${barOffset}px)`;
+
+        if (conn && conn.open) {
+          conn.send({
+            type: 'tilt',
+            beta: normalizedBeta,
+            gamma: normalizedGamma
+          });
+        }
+      });
+    }
+
+    // Request motion permission (needed for iOS)
+    async function requestMotionPermission() {
+      if (typeof DeviceMotionEvent !== 'undefined' &&
+          typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+          const permission = await DeviceMotionEvent.requestPermission();
+          if (permission === 'granted') {
+            hideTiltWarning();
+            // Reload to reinitialize tilt tracking
+            window.location.reload();
+          }
+        } catch (e) {
+          console.error('Permission error:', e);
+        }
+      } else {
+        // Not iOS, try reloading
+        window.location.reload();
+      }
+    }
+
+    // Tilt warning
+    function showTiltWarning() {
+      let warning = document.getElementById('tilt-warning');
+      if (!warning) {
+        warning = document.createElement('div');
+        warning.id = 'tilt-warning';
+        warning.style.cssText = `
+          position: fixed;
+          bottom: 20px;
+          left: 20px;
+          right: 20px;
+          background: rgba(255, 100, 100, 0.9);
+          color: white;
+          padding: 15px;
+          border-radius: 12px;
+          text-align: center;
+          font-size: 14px;
+          z-index: 1000;
+        `;
+        warning.innerHTML = `
+          <strong>Tilt controls not working?</strong><br>
+          <button id="enable-motion-btn" style="
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            background: white;
+            color: #c0392b;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+          ">Enable Motion Access</button>
+        `;
+        document.body.appendChild(warning);
+
+        document.getElementById('enable-motion-btn').addEventListener('click', requestMotionPermission);
+      }
+      warning.style.display = 'block';
+    }
+
+    function hideTiltWarning() {
+      const warning = document.getElementById('tilt-warning');
+      if (warning) {
+        warning.style.display = 'none';
+      }
+    }
+
+    // Prevent scrolling/zooming
+    document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+    // Prevent double-tap zoom
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, { passive: false });
+
+    // Try to lock screen orientation to portrait
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('portrait').catch(() => {
+        // Orientation lock not supported or not allowed - CSS fallback handles this
+      });
+    }
+
+    // Auto-connect on page load
+    connect();
+  </script>
+</body>
+</html>

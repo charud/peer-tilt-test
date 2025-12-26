@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Party Arcade by Tonima & Charlie</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #game-canvas {
+      display: block;
+    }
+
+    /* Lobby screen */
+    #lobby {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      z-index: 10;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    }
+    #lobby.hidden {
+      display: none;
+    }
+
+    .lobby-left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      padding: 80px 60px;
+    }
+
+    .title-block {
+      margin-bottom: 1.5rem;
+    }
+
+    .title-main {
+      font-size: 7rem;
+      font-weight: 900;
+      line-height: 0.9;
+      background: linear-gradient(180deg, #ff6b6b, #feca57);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .title-arcade {
+      font-size: 5rem;
+      font-weight: 900;
+      line-height: 1;
+      background: linear-gradient(180deg, #48dbfb, #54a0ff, #5f27cd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+
+    .title-byline {
+      font-size: 2.4rem;
+      font-weight: 600;
+      line-height: 1.2;
+      color: #ccc;
+      padding-left: 1.5rem;
+      border-left: 4px solid #ff9ff3;
+    }
+
+    .name-tonima {
+      background: linear-gradient(180deg, #ff9ff3, #f8b500);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .name-charlie {
+      background: linear-gradient(180deg, #48dbfb, #54a0ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .lobby-subtitle {
+      font-size: 1.9rem;
+      font-weight: 500;
+      margin-bottom: 3rem;
+      background: linear-gradient(90deg, #a0d2eb, #64dfdf, #48dbfb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 0.03em;
+    }
+
+    .games-label {
+      font-size: 1rem;
+      opacity: 0.5;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .game-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .game-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 215, 0, 0.2);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      transition: all 0.2s;
+    }
+
+    .game-card:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 215, 0, 0.4);
+    }
+
+    .game-icon {
+      font-size: 3rem;
+      width: 80px;
+      height: 80px;
+      background: rgba(255, 215, 0, 0.1);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .game-info h3 {
+      font-size: 1.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .game-info p {
+      opacity: 0.6;
+      font-size: 1rem;
+    }
+
+    .lobby-right {
+      width: 400px;
+      background: rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .qr-label {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 1.5rem;
+    }
+
+    #qr-code {
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+      margin-bottom: 1.5rem;
+      display: inline-block;
+    }
+
+    .qr-instruction {
+      font-size: 1rem;
+      opacity: 0.6;
+      line-height: 1.6;
+    }
+
+    .player-count-lobby {
+      margin-top: 2rem;
+      padding: 1rem 2rem;
+      background: rgba(255, 215, 0, 0.1);
+      border-radius: 30px;
+      font-size: 1.2rem;
+    }
+
+    .player-count-lobby .count {
+      color: #ffd700;
+      font-weight: bold;
+    }
+
+    /* In-game UI */
+    #game-ui {
+      display: none;
+    }
+    #game-ui.active {
+      display: block;
+    }
+
+    #qr-mini-container {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 5;
+      text-align: center;
+    }
+
+    #qr-mini-label {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      margin-bottom: 6px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    #qr-mini {
+      background: white;
+      padding: 8px;
+      border-radius: 10px;
+    }
+
+  </style>
+</head>
+<body>
+  <!-- Lobby / Game Selection -->
+  <div id="lobby">
+    <div class="lobby-left">
+      <div class="title-block">
+        <div class="title-main">PARTY</div>
+        <div class="title-row">
+          <span class="title-arcade">ARCADE</span>
+          <span class="title-byline">by <span class="name-tonima">Tonima</span><br>& <span class="name-charlie">Charlie</span></span>
+        </div>
+      </div>
+      <p class="lobby-subtitle">Multiplayer games with your phone as controller</p>
+
+      <p class="games-label">Available Games</p>
+      <div class="game-list" id="game-list">
+        <!-- Games populated by JS -->
+      </div>
+    </div>
+
+    <div class="lobby-right">
+      <p class="qr-label">Scan to Join</p>
+      <div id="qr-code"></div>
+      <p class="qr-instruction">
+        Connect with your phone<br>
+        to select a game and play!
+      </p>
+      <div class="player-count-lobby" id="player-count-lobby">
+        <span class="count">0</span> players connected
+      </div>
+    </div>
+  </div>
+
+  <!-- Game canvas and UI -->
+  <canvas id="game-canvas"></canvas>
+  <div id="game-ui">
+    <div id="qr-mini-container">
+      <div id="qr-mini-label">Join the fun!<br>Scan to play</div>
+      <div id="qr-mini"></div>
+    </div>
+  </div>
+
+  <script src="js/games.js"></script>
+  <script src="js/connection.js"></script>
+  <script src="js/game-engine.js"></script>
+  <script src="games/bumper-cars.js"></script>
+  <script src="games/beach-volleyball.js"></script>
+  <script src="games/snake.js"></script>
+  <script>
+    let connection;
+    let game = null;
+    let currentGameId = null;
+
+    // Debug player for keyboard/mouse control
+    let debugPlayer = null;
+
+    function createDebugPlayer() {
+      debugPlayer = {
+        id: 'debug-player',
+        peerId: 'debug-player',
+        number: 0,
+        name: 'Debug',
+        color: '#ffd700',
+        input: { x: 0, y: 0 },
+        connected: true
+      };
+      return debugPlayer;
+    }
+
+    async function init() {
+      // Populate game list (clickable for debug)
+      const gameListEl = document.getElementById('game-list');
+      GAME_LIST.forEach(g => {
+        const card = document.createElement('div');
+        card.className = 'game-card';
+        card.style.cursor = 'pointer';
+        card.innerHTML = `
+          <div class="game-icon">${g.icon}</div>
+          <div class="game-info">
+            <h3>${g.name}</h3>
+            <p>${g.description}</p>
+          </div>
+        `;
+        // Click to start game with debug player
+        card.addEventListener('click', () => {
+          console.log('Debug: clicking game', g.id);
+          createDebugPlayer();
+          console.log('Debug: created player', debugPlayer);
+          startGame(g.id);
+          console.log('Debug: game started, game object:', game);
+          if (game) {
+            game.onPlayerJoin(debugPlayer);
+            console.log('Debug: player joined');
+          } else {
+            console.log('Debug: game is null!');
+          }
+        });
+        gameListEl.appendChild(card);
+      });
+
+      // Keyboard controls for debug player
+      document.addEventListener('keydown', (e) => {
+        if (!debugPlayer || !game) return;
+
+        const speed = 1;
+        switch (e.key) {
+          case 'ArrowUp':
+          case 'w':
+            debugPlayer.input.y = -speed;
+            debugPlayer.input.x = 0;
+            break;
+          case 'ArrowDown':
+          case 's':
+            debugPlayer.input.y = speed;
+            debugPlayer.input.x = 0;
+            break;
+          case 'ArrowLeft':
+          case 'a':
+            debugPlayer.input.x = -speed;
+            debugPlayer.input.y = 0;
+            break;
+          case 'ArrowRight':
+          case 'd':
+            debugPlayer.input.x = speed;
+            debugPlayer.input.y = 0;
+            break;
+          case ' ':
+            // Space for jump/serve
+            if (game && typeof game.serve === 'function') {
+              game.serve(debugPlayer.id);
+            }
+            break;
+          case 'Escape':
+            // End game
+            endGame();
+            debugPlayer = null;
+            break;
+        }
+
+        if (game) {
+          game.onPlayerInput(debugPlayer, debugPlayer.input);
+        }
+      });
+
+      // Initialize connection manager
+      // Fixed room code for party - phones can reconnect even if display refreshes
+      connection = new ConnectionManager({
+        roomCode: 'PARTY1',
+        controllerUrl: 'https://charud.github.io/peer-tilt-test/controller.html',
+
+        onReady: (roomCode, url) => {
+          console.log('Room ready:', roomCode);
+          console.log('Controller URL:', url);
+
+          // Local URL for testing without waiting for GitHub Pages deploy
+          // Using hash instead of query param since some dev servers strip query params
+          const baseUrl = window.location.href.split('?')[0].split('#')[0];
+          const localUrl = baseUrl.replace(/display(\.html)?$/, 'controller.html') + '#' + roomCode;
+          console.log('Local controller URL:', localUrl);
+
+          // Generate QR code for lobby
+          new QRCode(document.getElementById('qr-code'), {
+            text: url,
+            width: 200,
+            height: 200,
+            colorDark: '#1a1a2e',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.L
+          });
+
+          // Generate mini QR for in-game
+          new QRCode(document.getElementById('qr-mini'), {
+            text: url,
+            width: 120,
+            height: 120,
+            colorDark: '#1a1a2e',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.L
+          });
+        },
+
+        onPlayerJoin: (player) => {
+          console.log('Player joined:', player.number);
+          updatePlayerCount();
+
+          // Send current game state to new player
+          connection.sendToPlayer(player.id, {
+            type: 'game-state',
+            gameId: currentGameId,
+            games: GAME_LIST
+          });
+
+          // If in game, add player to game
+          if (game && currentGameId) {
+            game.onPlayerJoin(player);
+          }
+        },
+
+        onPlayerLeave: (player) => {
+          console.log('Player left:', player.number);
+          updatePlayerCount();
+          if (game) {
+            game.onPlayerLeave(player);
+          }
+        },
+
+        onPlayerInput: (player, data) => {
+          // Handle request for current state
+          if (data.type === 'request-state') {
+            connection.sendToPlayer(player.id, {
+              type: 'game-state',
+              gameId: currentGameId,
+              games: GAME_LIST
+            });
+          }
+          // Handle game selection from controller
+          else if (data.type === 'select-game') {
+            console.log('Player', player.number, 'selected game:', data.gameId);
+            startGame(data.gameId);
+          }
+          // Handle end game request
+          else if (data.type === 'end-game') {
+            console.log('Player', player.number, 'ended game');
+            endGame();
+          }
+          // Handle restart game request
+          else if (data.type === 'restart-game') {
+            console.log('Player', player.number, 'restarted game');
+            restartGame();
+          }
+          // Handle serve (volleyball)
+          else if (data.type === 'serve') {
+            if (game && typeof game.serve === 'function') {
+              game.serve(player.id);
+            }
+          }
+          // Handle reset players request
+          else if (data.type === 'reset-players') {
+            console.log('Player', player.number, 'requested reset players');
+            resetAllPlayers();
+          }
+          // Handle tilt input - pass to game
+          else if (data.type === 'tilt') {
+            if (game && typeof game.onPlayerInput === 'function') {
+              game.onPlayerInput(player, player.input);
+            }
+          }
+        },
+
+        onError: (err) => {
+          console.error('Connection error:', err);
+        }
+      });
+
+      await connection.init();
+    }
+
+    function updatePlayerCount() {
+      const count = connection.playerCount;
+      document.getElementById('player-count-lobby').innerHTML =
+        `<span class="count">${count}</span> player${count !== 1 ? 's' : ''} connected`;
+    }
+
+    function startGame(gameId) {
+      const gameInfo = GAMES[gameId];
+      if (!gameInfo) return;
+
+      currentGameId = gameId;
+
+      // Hide lobby, show game
+      document.getElementById('lobby').classList.add('hidden');
+      document.getElementById('game-ui').classList.add('active');
+
+      // Initialize game based on type
+      const canvas = document.getElementById('game-canvas');
+      if (gameId === 'bumper-cars') {
+        game = new BumperCarsGame(canvas, connection);
+      } else if (gameId === 'beach-volleyball') {
+        game = new BeachVolleyballGame(canvas, connection);
+      } else if (gameId === 'snake') {
+        game = new SnakeGame(canvas, connection);
+      }
+
+      // Add existing players to game
+      connection.playerList.forEach(player => {
+        game.onPlayerJoin(player);
+      });
+
+      game.start();
+
+      // Notify all players
+      connection.broadcast({
+        type: 'game-started',
+        gameId: currentGameId
+      });
+    }
+
+    function endGame() {
+      if (game) {
+        game.stop();
+        game = null;
+      }
+      currentGameId = null;
+
+      // Show lobby, hide game
+      document.getElementById('lobby').classList.remove('hidden');
+      document.getElementById('game-ui').classList.remove('active');
+
+      // Notify all players
+      connection.broadcast({
+        type: 'game-ended',
+        games: GAME_LIST
+      });
+    }
+
+    function restartGame() {
+      if (!currentGameId) return;
+
+      const gameId = currentGameId;
+
+      // Stop current game
+      if (game) {
+        game.stop();
+        game = null;
+      }
+
+      // Start same game fresh
+      startGame(gameId);
+    }
+
+    function resetAllPlayers() {
+      console.log('Resetting all players...');
+
+      // End any active game first
+      if (game) {
+        game.stop();
+        game = null;
+      }
+      currentGameId = null;
+
+      // Show lobby
+      document.getElementById('lobby').classList.remove('hidden');
+      document.getElementById('game-ui').classList.remove('active');
+
+      // Disconnect all players (they will auto-reconnect)
+      connection.playerList.forEach(player => {
+        if (player.conn && player.conn.open) {
+          player.conn.close();
+        }
+      });
+
+      // Clear player list
+      connection.players = {};
+      updatePlayerCount();
+    }
+
+    init();
+  </script>
+</body>
+</html>

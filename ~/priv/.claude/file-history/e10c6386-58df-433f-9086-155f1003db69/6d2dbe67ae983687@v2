@@ -1,0 +1,157 @@
+# Music Quiz Game Implementation Plan
+
+## Overview
+Add a Spotify-powered music quiz game where:
+- Display authenticates with Spotify and plays 30-second preview clips
+- Users select genres, then guess "Artist - Track Name" from 5 options
+- Faster correct answers = more points
+
+## Files to Create/Modify
+
+### 1. `js/spotify.js` (NEW)
+Spotify API helper with PKCE OAuth flow:
+- `SpotifyAuth` class handling login/token management
+- Client ID: `7d46e1a144ee4f3fac2984db7a62fb35`
+- Redirect URI: `http://127.0.0.1:3000/display.html`
+- Scopes: none needed (only using public API endpoints)
+- Token stored in localStorage for persistence
+- Methods:
+  - `login()` - initiates PKCE OAuth flow
+  - `handleCallback()` - exchanges code for token
+  - `getGenres()` - fetch available genre seeds
+  - `getTracksByGenre(genre)` - search tracks with previews
+  - `isLoggedIn()` - check auth status
+
+### 2. `js/games.js` (MODIFY)
+Add music-quiz entry:
+```js
+'music-quiz': {
+  id: 'music-quiz',
+  name: 'Music Quiz',
+  subtitle: 'Name That Tune',
+  description: 'Guess the song from Spotify!',
+  icon: '🎵',
+  minPlayers: 1,
+  maxPlayers: 8,
+  controllerType: 'quiz'
+}
+```
+
+### 3. `games/music-quiz.js` (NEW)
+Game logic extending `GameEngine`:
+
+**State:**
+- `phase`: 'genre-select' | 'playing' | 'results' | 'game-over'
+- `currentTrack`: track being played
+- `options`: 5 answer options (1 correct, 4 wrong)
+- `playerAnswers`: map of playerId -> { answer, time }
+- `scores`: map of playerId -> total score
+- `roundNumber`, `totalRounds` (e.g., 10 rounds)
+- `roundStartTime`: for scoring speed
+- `audio`: HTML5 Audio element for preview playback
+
+**Flow:**
+1. Genre selection phase (display shows genres, first answer wins)
+2. For each round:
+   - Fetch random track from genre
+   - Pick 4 wrong options from same genre
+   - Shuffle options
+   - Play preview, show options on display
+   - Wait for all answers or timeout (15s)
+   - Show results, award points
+3. After all rounds, show final scores
+
+**Scoring:**
+- Correct answer: 1000 points base
+- Speed bonus: up to 500 extra points (faster = more)
+- Wrong answer: 0 points
+
+**Methods:**
+- `onPlayerInput(player, data)` - handle answer selection
+- `startRound()` - pick track, generate options, play audio
+- `endRound()` - calculate scores, show results
+- `render()` - draw current state (genre select, question, results)
+
+### 4. `display.html` (MODIFY)
+
+**Add scripts:**
+```html
+<script src="js/spotify.js"></script>
+<script src="games/music-quiz.js"></script>
+```
+
+**Add Spotify login UI to lobby:**
+- "Login with Spotify" button (shown when not authed)
+- "Logged in as X" indicator (shown when authed)
+- Music Quiz game card disabled until logged in
+
+**Handle OAuth callback:**
+- On page load, check for `code` param in URL
+- If present, exchange for token via `spotify.handleCallback()`
+
+**Handle new message types:**
+- `select-genre`: player selected a genre
+- `quiz-answer`: player selected an answer (index 0-4)
+
+**Game initialization:**
+- Pass spotify instance to MusicQuizGame constructor
+- `game = new MusicQuizGame(canvas, connection, spotify)`
+
+### 5. `controller.html` (MODIFY)
+
+**Add quiz controller UI:**
+```html
+<div id="quiz-controls" style="display: none;">
+  <div class="quiz-options" id="quiz-options">
+    <!-- 5 buttons populated dynamically -->
+  </div>
+  <div class="quiz-status" id="quiz-status">Waiting...</div>
+</div>
+```
+
+**Handle new controllerType 'quiz':**
+- In `updateControllerUI(game)`, show quiz-specific controls
+- Hide tilt indicator, show answer buttons
+
+**Handle quiz messages from display:**
+- `quiz-question`: { options: string[], roundNumber, totalRounds }
+- `quiz-result`: { correct: boolean, correctAnswer, scores }
+- `quiz-genre-select`: { genres: string[] }
+- `quiz-waiting`: waiting for next round
+
+**Send quiz answers:**
+- `{ type: 'quiz-answer', answerIndex: 0-4 }`
+- `{ type: 'select-genre', genre: 'rock' }`
+
+## Message Protocol
+
+**Display -> Controller:**
+- `{ type: 'quiz-genre-select', genres: ['rock', 'pop', ...] }`
+- `{ type: 'quiz-question', options: ['Artist - Track', ...], roundNumber, totalRounds }`
+- `{ type: 'quiz-result', correct, correctAnswer, yourScore, scores }`
+- `{ type: 'quiz-gameover', scores, winner }`
+
+**Controller -> Display:**
+- `{ type: 'select-genre', genre: 'rock' }`
+- `{ type: 'quiz-answer', answerIndex: 0 }`
+
+## Implementation Order
+
+1. Create `js/spotify.js` with PKCE auth flow
+2. Add Spotify login button to `display.html` lobby
+3. Test OAuth flow works with 127.0.0.1
+4. Create `games/music-quiz.js` with basic structure
+5. Add game to `js/games.js` registry
+6. Add quiz controller UI to `controller.html`
+7. Implement genre selection phase
+8. Implement quiz round logic
+9. Implement scoring and results display
+10. Polish UI and test multiplayer
+
+## Technical Notes
+
+- Preview URLs are direct MP3 links, play with `new Audio(url)`
+- Some tracks don't have previews - filter these out
+- Spotify search API: `GET /v1/search?q=genre:{genre}&type=track`
+- Genre seeds: `GET /v1/recommendations/available-genre-seeds`
+- Token refresh: PKCE tokens last 1 hour, store refresh_token

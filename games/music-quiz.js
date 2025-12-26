@@ -39,23 +39,12 @@ class MusicQuizGame extends GameEngine {
   }
 
   async loadGenres() {
-    try {
-      const allGenres = await this.spotify.getGenres();
-      // Pick a curated subset of popular genres
-      const popularGenres = [
-        'pop', 'rock', 'hip-hop', 'electronic', 'r-n-b', 'indie',
-        'jazz', 'classical', 'country', 'metal', 'disco', 'soul',
-        'reggae', 'punk', 'blues', 'latin', 'k-pop', 'ambient'
-      ];
-      this.genres = popularGenres.filter(g => allGenres.includes(g));
-      if (this.genres.length === 0) {
-        this.genres = allGenres.slice(0, 12);
-      }
-      this.broadcastGenreSelect();
-    } catch (e) {
-      console.error('Failed to load genres:', e);
-      this.statusMessage = 'Failed to load genres';
-    }
+    // Hardcoded genres (Spotify deprecated the genre seeds endpoint)
+    this.genres = [
+      'pop', 'rock', 'hip-hop', 'electronic', 'r-n-b', 'indie',
+      'jazz', 'classical', 'country', 'metal', 'disco', 'latin'
+    ];
+    this.broadcastGenreSelect();
   }
 
   broadcastGenreSelect() {

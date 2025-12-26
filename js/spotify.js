@@ -4,11 +4,16 @@ class SpotifyAuth {
   constructor(config = {}) {
     this.clientId = config.clientId || '7d46e1a144ee4f3fac2984db7a62fb35';
     this.redirectUri = config.redirectUri || this.detectRedirectUri();
-    this.scopes = ''; // No special scopes needed for public endpoints
+    this.scopes = 'streaming user-read-email user-read-private'; // Scopes for Web Playback SDK
 
     this.accessToken = localStorage.getItem('spotify_access_token');
     this.refreshToken = localStorage.getItem('spotify_refresh_token');
     this.tokenExpiry = parseInt(localStorage.getItem('spotify_token_expiry') || '0');
+
+    // Web Playback SDK
+    this.player = null;
+    this.deviceId = null;
+    this.playerReady = false;
   }
 
   detectRedirectUri() {
@@ -248,22 +253,122 @@ class SpotifyAuth {
     return response.json();
   }
 
+  // Initialize Web Playback SDK
+  async initPlayer() {
+    if (!this.isLoggedIn()) {
+      console.log('Not logged in, cannot init player');
+      return false;
+    }
+
+    return new Promise((resolve) => {
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        console.log('Spotify Web Playback SDK Ready');
+
+        this.player = new Spotify.Player({
+          name: 'Party Arcade Music Quiz',
+          getOAuthToken: cb => { cb(this.accessToken); },
+          volume: 0.8
+        });
+
+        this.player.addListener('ready', ({ device_id }) => {
+          console.log('Player ready with device ID:', device_id);
+          this.deviceId = device_id;
+          this.playerReady = true;
+          resolve(true);
+        });
+
+        this.player.addListener('not_ready', ({ device_id }) => {
+          console.log('Device has gone offline:', device_id);
+          this.playerReady = false;
+        });
+
+        this.player.addListener('initialization_error', ({ message }) => {
+          console.error('Initialization error:', message);
+          resolve(false);
+        });
+
+        this.player.addListener('authentication_error', ({ message }) => {
+          console.error('Authentication error:', message);
+          resolve(false);
+        });
+
+        this.player.addListener('account_error', ({ message }) => {
+          console.error('Account error (Premium required):', message);
+          resolve(false);
+        });
+
+        this.player.connect();
+      };
+
+      // If SDK already loaded, trigger manually
+      if (window.Spotify) {
+        window.onSpotifyWebPlaybackSDKReady();
+      }
+    });
+  }
+
+  // Play a track by URI
+  async playTrack(trackUri, positionMs = 0) {
+    if (!this.playerReady || !this.deviceId) {
+      console.error('Player not ready');
+      return false;
+    }
+
+    try {
+      await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${this.deviceId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          uris: [trackUri],
+          position_ms: positionMs
+        })
+      });
+      return true;
+    } catch (e) {
+      console.error('Failed to play track:', e);
+      return false;
+    }
+  }
+
+  // Pause playback
+  async pause() {
+    if (this.player) {
+      await this.player.pause();
+    }
+  }
+
+  // Resume playback
+  async resume() {
+    if (this.player) {
+      await this.player.resume();
+    }
+  }
+
+  // Set volume (0-1)
+  async setVolume(volume) {
+    if (this.player) {
+      await this.player.setVolume(volume);
+    }
+  }
+
   // Search for tracks by keyword/genre
   async searchTracks(query, limit = 50) {
-    // Search for popular tracks matching the genre/query
+    // Search for popular tracks
     const data = await this.apiRequest(
-      `/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`
+      `/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&market=US`
     );
 
-    // Filter to only tracks with preview URLs
-    const tracksWithPreviews = data.tracks.items.filter(track => track.preview_url);
+    console.log(`Search "${query}": ${data.tracks.items.length} tracks found`);
 
-    return tracksWithPreviews.map(track => ({
+    return data.tracks.items.map(track => ({
       id: track.id,
+      uri: track.uri, // spotify:track:xxx - needed for playback SDK
       name: track.name,
       artist: track.artists[0]?.name || 'Unknown Artist',
       album: track.album.name,
-      previewUrl: track.preview_url,
       albumArt: track.album.images[0]?.url,
       displayName: `${track.artists[0]?.name} - ${track.name}`
     }));

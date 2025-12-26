@@ -25,9 +25,7 @@ class MusicQuizGame extends GameEngine {
     this.roundTimeout = 15000; // 15 seconds to answer
     this.resultsTimeout = 4000; // 4 seconds to show results
 
-    // Audio
-    this.audio = new Audio();
-    this.audio.volume = 0.8;
+    // Audio - using Spotify Web Playback SDK (no more this.audio)
 
     // UI state
     this.statusMessage = 'Loading...';
@@ -148,6 +146,17 @@ class MusicQuizGame extends GameEngine {
 
   async startGame() {
     this.phase = 'loading';
+    this.statusMessage = 'Initializing player...';
+
+    // Initialize Spotify Web Playback SDK
+    if (!this.spotify.playerReady) {
+      const success = await this.spotify.initPlayer();
+      if (!success) {
+        this.statusMessage = 'Failed to initialize player (Premium required)';
+        return;
+      }
+    }
+
     this.statusMessage = `Loading ${this.selectedGenre} tracks...`;
 
     try {
@@ -164,14 +173,14 @@ class MusicQuizGame extends GameEngine {
 
       // Start first round
       this.roundNumber = 0;
-      this.startRound();
+      await this.startRound();
     } catch (e) {
       console.error('Failed to load tracks:', e);
       this.statusMessage = 'Failed to load tracks';
     }
   }
 
-  startRound() {
+  async startRound() {
     this.roundNumber++;
     this.playerAnswers = {};
     this.phase = 'playing';
@@ -183,10 +192,13 @@ class MusicQuizGame extends GameEngine {
     // Generate options (1 correct + 4 wrong)
     this.options = this.generateOptions(this.currentTrack);
 
-    // Start playing audio
-    this.audio.src = this.currentTrack.previewUrl;
-    this.audio.currentTime = 0;
-    this.audio.play().catch(e => console.error('Audio play error:', e));
+    // Start playing via Spotify Web Playback SDK
+    // Play from a random position (10-30 seconds in) for variety
+    const startPosition = Math.floor(Math.random() * 20000) + 10000;
+    const success = await this.spotify.playTrack(this.currentTrack.uri, startPosition);
+    if (!success) {
+      console.error('Failed to play track');
+    }
 
     // Short delay before accepting answers (let music start)
     setTimeout(() => {
@@ -235,7 +247,7 @@ class MusicQuizGame extends GameEngine {
     this.phase = 'results';
 
     // Stop audio
-    this.audio.pause();
+    this.spotify.pause();
 
     // Calculate scores for this round
     const correctIndex = this.options.findIndex(o => o.isCorrect);
@@ -286,18 +298,18 @@ class MusicQuizGame extends GameEngine {
     }
 
     // Check if game over or next round
-    setTimeout(() => {
+    setTimeout(async () => {
       if (this.roundNumber >= this.totalRounds) {
         this.endGame();
       } else {
-        this.startRound();
+        await this.startRound();
       }
     }, this.resultsTimeout);
   }
 
   endGame() {
     this.phase = 'game-over';
-    this.audio.pause();
+    this.spotify.pause();
 
     // Find winner
     let winner = null;
@@ -326,7 +338,7 @@ class MusicQuizGame extends GameEngine {
 
   stop() {
     super.stop();
-    this.audio.pause();
+    this.spotify.pause();
     if (this.resultTimer) {
       clearTimeout(this.resultTimer);
     }

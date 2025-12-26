@@ -436,6 +436,68 @@
       opacity: 0.4;
       pointer-events: none;
     }
+
+    /* Quiz answer buttons */
+    .quiz-btn {
+      width: 100%;
+      padding: 1rem 1.2rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 2px solid rgba(255, 215, 0, 0.3);
+      border-radius: 12px;
+      color: white;
+      font-size: 0.95rem;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .quiz-btn:active {
+      background: rgba(255, 215, 0, 0.3);
+      border-color: #ffd700;
+      transform: scale(0.98);
+    }
+
+    .quiz-btn.selected {
+      background: rgba(255, 215, 0, 0.2);
+      border-color: #ffd700;
+    }
+
+    .quiz-btn.correct {
+      background: rgba(74, 222, 128, 0.3);
+      border-color: #4ade80;
+    }
+
+    .quiz-btn.wrong {
+      background: rgba(248, 113, 113, 0.3);
+      border-color: #f87171;
+    }
+
+    .quiz-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Genre buttons */
+    .genre-btn {
+      width: 100%;
+      padding: 1rem 1.5rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 2px solid rgba(255, 215, 0, 0.3);
+      border-radius: 12px;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 500;
+      text-align: center;
+      cursor: pointer;
+      text-transform: capitalize;
+      transition: all 0.15s;
+    }
+
+    .genre-btn:active {
+      background: rgba(255, 215, 0, 0.3);
+      border-color: #ffd700;
+      transform: scale(0.98);
+    }
   </style>
 </head>
 <body>
@@ -491,6 +553,25 @@
     <p class="instruction" id="instruction-main">Tilt to drive!</p>
     <p class="instruction-sub" id="instruction-sub">Push others off the arena</p>
     <button id="action-btn" class="action-btn">JUMP</button>
+
+    <!-- Quiz controls -->
+    <div id="quiz-controls" style="display: none; width: 100%;">
+      <div id="quiz-status" style="font-size: 1.1rem; margin-bottom: 1rem; opacity: 0.8;">Waiting...</div>
+      <div id="quiz-options" style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%; max-width: 350px;"></div>
+      <div id="quiz-result" style="display: none; margin-top: 1.5rem; text-align: center;">
+        <div id="quiz-result-icon" style="font-size: 3rem; margin-bottom: 0.5rem;"></div>
+        <div id="quiz-result-text" style="font-size: 1.2rem; font-weight: bold;"></div>
+        <div id="quiz-result-points" style="font-size: 1rem; opacity: 0.8;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Genre selection view -->
+  <div id="genre-view" class="view">
+    <button id="leave-btn-genre" class="leave-btn">Leave</button>
+    <div class="app-title">Music Quiz</div>
+    <p class="section-title" style="margin-bottom: 1.5rem;">Pick a Genre!</p>
+    <div id="genre-list" style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%; max-width: 300px;"></div>
   </div>
 
   <script>
@@ -695,6 +776,26 @@
         populateGameList();
         showView('select-view');
       }
+      // Quiz-specific messages
+      else if (data.type === 'quiz-genre-select') {
+        populateGenreList(data.genres);
+        showView('genre-view');
+      }
+      else if (data.type === 'quiz-question') {
+        showQuizQuestion(data.options, data.roundNumber, data.totalRounds);
+      }
+      else if (data.type === 'quiz-answer-received') {
+        markAnswerSelected(data.answerIndex);
+      }
+      else if (data.type === 'quiz-result') {
+        showQuizResult(data);
+      }
+      else if (data.type === 'quiz-your-result') {
+        showPersonalResult(data);
+      }
+      else if (data.type === 'quiz-gameover') {
+        showQuizGameOver(data);
+      }
     }
 
     // Populate game selection list
@@ -755,6 +856,11 @@
       leaveGame();
     });
 
+    // Leave button (genre selection) - disconnect and return to connecting screen
+    document.getElementById('leave-btn-genre').addEventListener('click', () => {
+      leaveGame();
+    });
+
     // Reset players button - send message to display to clear all players
     document.getElementById('reset-players-btn').addEventListener('click', () => {
       if (conn && conn.open) {
@@ -783,28 +889,167 @@
       const actionBtn = document.getElementById('action-btn');
       const tiltIndicator = document.getElementById('tilt-indicator');
       const tiltBar = document.getElementById('tilt-bar');
+      const quizControls = document.getElementById('quiz-controls');
       const instructionMain = document.getElementById('instruction-main');
       const instructionSub = document.getElementById('instruction-sub');
+
+      // Reset all
+      actionBtn.classList.remove('visible');
+      tiltIndicator.style.display = 'none';
+      tiltBar.classList.remove('visible');
+      quizControls.style.display = 'none';
 
       if (game.id === 'beach-volleyball') {
         actionBtn.classList.add('visible');
         actionBtn.textContent = 'JUMP';
-        tiltIndicator.style.display = 'none';
         tiltBar.classList.add('visible');
         instructionMain.textContent = 'Tilt left/right to move';
         instructionSub.textContent = 'Jump to hit the ball!';
       } else if (game.id === 'bumper-cars') {
-        actionBtn.classList.remove('visible');
         tiltIndicator.style.display = 'block';
-        tiltBar.classList.remove('visible');
         instructionMain.textContent = 'Tilt to drive!';
         instructionSub.textContent = 'Push others off the arena';
+      } else if (game.id === 'music-quiz') {
+        quizControls.style.display = 'flex';
+        instructionMain.textContent = 'Music Quiz';
+        instructionSub.textContent = 'Listen and guess!';
       } else {
-        actionBtn.classList.remove('visible');
         tiltIndicator.style.display = 'block';
-        tiltBar.classList.remove('visible');
         instructionMain.textContent = 'Tilt to move!';
         instructionSub.textContent = '';
+      }
+    }
+
+    // Quiz helper functions
+    function populateGenreList(genres) {
+      const listEl = document.getElementById('genre-list');
+      listEl.innerHTML = '';
+
+      genres.forEach(genre => {
+        const btn = document.createElement('button');
+        btn.className = 'genre-btn';
+        btn.textContent = genre;
+        btn.addEventListener('click', () => selectGenre(genre));
+        listEl.appendChild(btn);
+      });
+    }
+
+    function selectGenre(genre) {
+      if (conn && conn.open) {
+        conn.send({ type: 'select-genre', genre });
+      }
+      // Show controller view waiting for game to start
+      showView('controller-view');
+      document.getElementById('quiz-status').textContent = `Loading ${genre} tracks...`;
+    }
+
+    let quizAnswered = false;
+
+    function showQuizQuestion(options, roundNumber, totalRounds) {
+      quizAnswered = false;
+      const optionsEl = document.getElementById('quiz-options');
+      const statusEl = document.getElementById('quiz-status');
+      const resultEl = document.getElementById('quiz-result');
+
+      statusEl.textContent = `Round ${roundNumber}/${totalRounds}`;
+      resultEl.style.display = 'none';
+      optionsEl.innerHTML = '';
+
+      options.forEach((option, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'quiz-btn';
+        btn.innerHTML = `<span style="color: #ffd700; margin-right: 0.5rem;">${i + 1}.</span> ${option}`;
+        btn.addEventListener('click', () => submitAnswer(i));
+        optionsEl.appendChild(btn);
+      });
+
+      showView('controller-view');
+    }
+
+    function submitAnswer(answerIndex) {
+      if (quizAnswered) return;
+      quizAnswered = true;
+
+      if (conn && conn.open) {
+        conn.send({ type: 'quiz-answer', answerIndex });
+      }
+
+      // Disable all buttons
+      document.querySelectorAll('.quiz-btn').forEach(btn => {
+        btn.disabled = true;
+      });
+    }
+
+    function markAnswerSelected(answerIndex) {
+      const buttons = document.querySelectorAll('.quiz-btn');
+      if (buttons[answerIndex]) {
+        buttons[answerIndex].classList.add('selected');
+      }
+      document.getElementById('quiz-status').textContent = 'Answer submitted!';
+    }
+
+    function showQuizResult(data) {
+      const buttons = document.querySelectorAll('.quiz-btn');
+
+      // Mark correct answer
+      if (buttons[data.correctIndex]) {
+        buttons[data.correctIndex].classList.add('correct');
+      }
+
+      // Mark wrong selected answers
+      buttons.forEach((btn, i) => {
+        if (btn.classList.contains('selected') && i !== data.correctIndex) {
+          btn.classList.add('wrong');
+        }
+      });
+
+      document.getElementById('quiz-status').textContent = `Correct: ${data.correctAnswer}`;
+    }
+
+    function showPersonalResult(data) {
+      const resultEl = document.getElementById('quiz-result');
+      const iconEl = document.getElementById('quiz-result-icon');
+      const textEl = document.getElementById('quiz-result-text');
+      const pointsEl = document.getElementById('quiz-result-points');
+
+      resultEl.style.display = 'block';
+
+      if (data.correct) {
+        iconEl.textContent = '🎉';
+        textEl.textContent = 'Correct!';
+        textEl.style.color = '#4ade80';
+        pointsEl.textContent = `+${data.points} points (Total: ${data.totalScore})`;
+      } else {
+        iconEl.textContent = '😅';
+        textEl.textContent = 'Wrong!';
+        textEl.style.color = '#f87171';
+        pointsEl.textContent = `Total: ${data.totalScore}`;
+      }
+    }
+
+    function showQuizGameOver(data) {
+      const statusEl = document.getElementById('quiz-status');
+      const optionsEl = document.getElementById('quiz-options');
+      const resultEl = document.getElementById('quiz-result');
+      const iconEl = document.getElementById('quiz-result-icon');
+      const textEl = document.getElementById('quiz-result-text');
+      const pointsEl = document.getElementById('quiz-result-points');
+
+      optionsEl.innerHTML = '';
+      resultEl.style.display = 'block';
+
+      if (data.winner) {
+        statusEl.textContent = 'Game Over!';
+        iconEl.textContent = '🏆';
+        textEl.textContent = `${data.winner.name} wins!`;
+        textEl.style.color = '#ffd700';
+        pointsEl.textContent = `${data.winner.score} points`;
+      } else {
+        statusEl.textContent = 'Game Over!';
+        iconEl.textContent = '🎵';
+        textEl.textContent = 'Thanks for playing!';
+        textEl.style.color = 'white';
+        pointsEl.textContent = '';
       }
     }
 

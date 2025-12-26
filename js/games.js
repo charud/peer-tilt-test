@@ -30,6 +30,17 @@ const GAMES = {
     minPlayers: 1,
     maxPlayers: 8,
     controllerType: 'tilt'
+  },
+  'music-quiz': {
+    id: 'music-quiz',
+    name: 'Music Quiz',
+    subtitle: 'Name That Tune',
+    description: 'Guess the song from Spotify!',
+    icon: '🎵',
+    minPlayers: 1,
+    maxPlayers: 8,
+    controllerType: 'quiz',
+    requiresSpotify: true
   }
 };
 

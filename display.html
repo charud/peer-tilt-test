@@ -40,6 +40,7 @@
       flex-direction: column;
       justify-content: flex-start;
       padding: 80px 60px;
+      overflow-y: auto;
     }
 
     .title-block {
@@ -240,6 +241,30 @@
       <div class="game-list" id="game-list">
         <!-- Games populated by JS -->
       </div>
+
+      <div id="spotify-section" style="margin-top: 2rem;">
+        <div id="spotify-login" style="display: none;">
+          <p style="opacity: 0.6; font-size: 0.9rem; margin-bottom: 0.75rem;">Music Quiz requires Spotify</p>
+          <button id="spotify-login-btn" style="
+            padding: 0.8rem 1.5rem;
+            font-size: 1rem;
+            background: #1DB954;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+          ">
+            <span style="font-size: 1.2rem;">🎵</span> Login with Spotify
+          </button>
+        </div>
+        <div id="spotify-status" style="display: none; opacity: 0.7; font-size: 0.9rem;">
+          <span style="color: #1DB954;">✓</span> Spotify connected
+        </div>
+      </div>
     </div>
 
     <div class="lobby-right">
@@ -264,16 +289,32 @@
     </div>
   </div>
 
+  <script>
+    // Capture OAuth code immediately before any redirects happen
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const state = params.get('state');
+      if (code) {
+        console.log('Captured OAuth code early');
+        sessionStorage.setItem('spotify_oauth_code', code);
+        sessionStorage.setItem('spotify_oauth_state', state);
+      }
+    })();
+  </script>
   <script src="js/games.js"></script>
   <script src="js/connection.js"></script>
   <script src="js/game-engine.js"></script>
+  <script src="js/spotify.js"></script>
   <script src="games/bumper-cars.js"></script>
   <script src="games/beach-volleyball.js"></script>
   <script src="games/snake.js"></script>
+  <script src="games/music-quiz.js"></script>
   <script>
     let connection;
     let game = null;
     let currentGameId = null;
+    let spotify = null;
 
     // Debug player for keyboard/mouse control
     let debugPlayer = null;
@@ -292,21 +333,48 @@
     }
 
     async function init() {
+      // Initialize Spotify
+      spotify = new SpotifyAuth();
+
+      // Handle OAuth callback if present
+      const handled = await spotify.handleCallback();
+      if (handled) {
+        console.log('Spotify auth successful');
+      }
+
+      // Update Spotify UI
+      updateSpotifyUI();
+
+      // Spotify login button
+      document.getElementById('spotify-login-btn').addEventListener('click', () => {
+        spotify.login();
+      });
+
       // Populate game list (clickable for debug)
       const gameListEl = document.getElementById('game-list');
       GAME_LIST.forEach(g => {
         const card = document.createElement('div');
         card.className = 'game-card';
-        card.style.cursor = 'pointer';
+        card.dataset.gameId = g.id;
+
+        const needsSpotify = g.requiresSpotify && !spotify.isLoggedIn();
+        card.style.cursor = needsSpotify ? 'not-allowed' : 'pointer';
+        card.style.opacity = needsSpotify ? '0.5' : '1';
+
         card.innerHTML = `
           <div class="game-icon">${g.icon}</div>
           <div class="game-info">
             <h3>${g.name}</h3>
             <p>${g.description}</p>
+            ${needsSpotify ? '<p style="color: #1DB954; font-size: 0.85rem; margin-top: 0.25rem;">Requires Spotify login</p>' : ''}
           </div>
         `;
         // Click to start game with debug player
         card.addEventListener('click', () => {
+          if (g.requiresSpotify && !spotify.isLoggedIn()) {
+            console.log('Spotify login required for', g.id);
+            return;
+          }
           console.log('Debug: clicking game', g.id);
           createDebugPlayer();
           console.log('Debug: created player', debugPlayer);
@@ -322,7 +390,7 @@
         gameListEl.appendChild(card);
       });
 
-      // Keyboard controls for debug player
+    // Keyboard controls for debug player
       document.addEventListener('keydown', (e) => {
         if (!debugPlayer || !game) return;
 
@@ -469,6 +537,12 @@
               game.onPlayerInput(player, player.input);
             }
           }
+          // Handle quiz-specific messages
+          else if (data.type === 'select-genre' || data.type === 'quiz-answer') {
+            if (game && typeof game.onPlayerInput === 'function') {
+              game.onPlayerInput(player, data);
+            }
+          }
         },
 
         onError: (err) => {
@@ -483,6 +557,32 @@
       const count = connection.playerCount;
       document.getElementById('player-count-lobby').innerHTML =
         `<span class="count">${count}</span> player${count !== 1 ? 's' : ''} connected`;
+    }
+
+    function updateSpotifyUI() {
+      const loginDiv = document.getElementById('spotify-login');
+      const statusDiv = document.getElementById('spotify-status');
+
+      if (spotify && spotify.isLoggedIn()) {
+        loginDiv.style.display = 'none';
+        statusDiv.style.display = 'block';
+
+        // Update game cards that require Spotify
+        document.querySelectorAll('.game-card').forEach(card => {
+          const gameId = card.dataset.gameId;
+          const gameInfo = GAMES[gameId];
+          if (gameInfo?.requiresSpotify) {
+            card.style.cursor = 'pointer';
+            card.style.opacity = '1';
+            // Remove "requires login" message
+            const reqMsg = card.querySelector('p[style*="color: #1DB954"]');
+            if (reqMsg) reqMsg.remove();
+          }
+        });
+      } else {
+        loginDiv.style.display = 'block';
+        statusDiv.style.display = 'none';
+      }
     }
 
     function startGame(gameId) {
@@ -503,6 +603,8 @@
         game = new BeachVolleyballGame(canvas, connection);
       } else if (gameId === 'snake') {
         game = new SnakeGame(canvas, connection);
+      } else if (gameId === 'music-quiz') {
+        game = new MusicQuizGame(canvas, connection, spotify);
       }
 
       // Add existing players to game

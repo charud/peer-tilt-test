@@ -151,14 +151,8 @@ class MusicQuizGame extends GameEngine {
     this.statusMessage = `Loading ${this.selectedGenre} tracks...`;
 
     try {
-      // Fetch tracks for selected genre
-      this.tracks = await this.spotify.getTracksByGenre(this.selectedGenre, 50);
-
-      if (this.tracks.length < 5) {
-        // Try recommendations as fallback
-        const moreTracks = await this.spotify.getRecommendations(this.selectedGenre, 30);
-        this.tracks = [...this.tracks, ...moreTracks];
-      }
+      // Fetch tracks using search API
+      this.tracks = await this.spotify.searchTracks(this.selectedGenre, 50);
 
       if (this.tracks.length < 5) {
         this.statusMessage = 'Not enough tracks found';

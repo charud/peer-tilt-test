@@ -248,41 +248,15 @@ class SpotifyAuth {
     return response.json();
   }
 
-  // Get available genre seeds
-  async getGenres() {
-    const data = await this.apiRequest('/recommendations/available-genre-seeds');
-    return data.genres;
-  }
-
-  // Search for tracks by genre with preview URLs
-  async getTracksByGenre(genre, limit = 50) {
-    // Search for tracks in this genre
+  // Search for tracks by keyword/genre
+  async searchTracks(query, limit = 50) {
+    // Search for popular tracks matching the genre/query
     const data = await this.apiRequest(
-      `/search?q=genre:${encodeURIComponent(genre)}&type=track&limit=${limit}`
+      `/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`
     );
 
     // Filter to only tracks with preview URLs
     const tracksWithPreviews = data.tracks.items.filter(track => track.preview_url);
-
-    return tracksWithPreviews.map(track => ({
-      id: track.id,
-      name: track.name,
-      artist: track.artists[0]?.name || 'Unknown Artist',
-      album: track.album.name,
-      previewUrl: track.preview_url,
-      albumArt: track.album.images[0]?.url,
-      displayName: `${track.artists[0]?.name} - ${track.name}`
-    }));
-  }
-
-  // Get recommendations based on genre (alternative approach)
-  async getRecommendations(genre, limit = 20) {
-    const data = await this.apiRequest(
-      `/recommendations?seed_genres=${encodeURIComponent(genre)}&limit=${limit}`
-    );
-
-    // Filter to only tracks with preview URLs
-    const tracksWithPreviews = data.tracks.filter(track => track.preview_url);
 
     return tracksWithPreviews.map(track => ({
       id: track.id,
